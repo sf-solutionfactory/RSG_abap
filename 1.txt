@@ -123,6 +123,98 @@ ENDFORM.
 *                                                                     *
 *---------------------------------------------------------------------*
 FORM userexit_move_field_to_vbak.
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""$"$\SE:(1) Forma USEREXIT_MOVE_FIELD_TO_VBAK, Inicio                                                                                                         A
+*$*$-Start: (1)---------------------------------------------------------------------------------$*$*
+ENHANCEMENT 1  ZSDBA_MV45AFZZ_03.    "active version
+
+*
+**IF sy–ucomm EQ 'SICH'.
+*
+**–Read table XVBAP to check if the material is not already added
+*           READ TABLE xvbap "INTO ls_xvbap
+*           WITH KEY matnr = '000000000001000632'
+*                    updkz = 'I'.
+*
+*           IF sy-subrc NE 0.
+*
+*             CLEAR: vbap.
+*
+**–Initialize workareas for VBAP and VBEP
+*
+*             PERFORM vbap_unterlegen(sapfv45p).
+*             PERFORM vbep_unterlegen(sapfv45e).
+*
+**–Populate material number and quantity
+*
+**             xvbap–matnr   = '000000000001000632'.
+*
+**             rv45a–kwmeng   = 1000.
+*              vbap-matnr    = '000000000001000632'.
+*              rv45a-kwmeng = 1000.
+**–Call standard performs to populate material details.
+*
+**–Perform for material validations and details
+*
+*              PERFORM VBAP-MATNR_PRUEFEN(sapfv45p) USING charx sy-subrc.
+*
+*
+**             PERFORM vbap–matnr_pruefen(sapfv45p) USING charx sy-subrc.
+**–Perform for item category determination. This will take care of substitution items if any for this material.
+*
+**             PERFORM vbap–pstyv_pruefen(sapfv45p).
+**             vbap–pstyv = 'TANN'.
+*              perform vbap-pstyv_pruefen(sapfv45p).
+*
+*             vbap-pstyv = 'TANN'.
+**    IF vbap-pstyv EQ space.
+**    ENDIF.
+**–Perform for filling VBAP with default values from configuration and master tables
+*
+*             PERFORM vbap_fuellen(sapfv45p).
+*             perform vbap-matnr_null_pruefen(sapfv45p).
+*
+**             PERFORM vbap–matnr_null_pruefen(sapfv45p).
+*             perform vbep-wmeng_setzen(sapfv45e).
+**             PERFORM vbep–wmeng_setzen(sapfv45e).
+*
+**–Perform to check sales unit
+*
+**             PERFORM VBAP-VRKME_PRUEFEN(SAPFV45P) USING CHARX
+*              perform vbap-vrkme_pruefen(sapfv45p) using charx
+*                        CHANGING SY-SUBRC SY-MSGID SY-MSGTY SY-MSGNO
+*                                 SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+*
+**–Perform to update VBAP values
+*             perform vbap_bearbeiten(sapfv45p).
+**             PERFORM vbap_bearbeiten(sapfv45p).
+**–Perform for filling VBEP with default values. This will take care of schedule lines of the item
+*
+*             PERFORM vbep_fuellen(sapfv45e).
+**–Perform to check quantity
+*
+**             PERFORM vbep–wmeng_pruefen(sapfv45e) USING charx
+*              perform vbep-wmeng_pruefen(sapfv45e) using charx
+*                        CHANGING SY-SUBRC SY-MSGID SY-MSGTY SY-MSGNO
+*                                 SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+*
+**                   CHANGING sy-subrc sy–msgid sy–msgty sy–msgno
+**                            sy–msgv1 sy–msgv2 sy–msgv3 sy–msgv4.
+*
+**–Perform to update VBEP values
+*
+*             PERFORM vbep_bearbeiten(sapfv45e).
+**–Perform to fill conditions and pricing data
+*
+*             PERFORM vbap_bearbeiten_ende(sapfv45p).
+*        ENDIF.
+**ENDIF.
+*
+*
+
+
+*
+ENDENHANCEMENT.
+*$*$-End:   (1)---------------------------------------------------------------------------------$*$*
 
 *  vbak-zzfield = xxxx-zzfield2.
 
@@ -142,8 +234,8 @@ ENDFORM.
 *                                                                     *
 *---------------------------------------------------------------------*
 FORM userexit_move_field_to_vbap.
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""$"$\SE:(1) Forma USEREXIT_MOVE_FIELD_TO_VBAP, Inicio                                                                                                         A
-*$*$-Start: (1)---------------------------------------------------------------------------------$*$*
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""$"$\SE:(2) Forma USEREXIT_MOVE_FIELD_TO_VBAP, Inicio                                                                                                         A
+*$*$-Start: (2)---------------------------------------------------------------------------------$*$*
 ENHANCEMENT 1  ZSDBA_MV45AFZZ_02.    "active version
 IF sy-tcode EQ 'VA01' OR sy-tcode EQ 'VA02'.
 IF vbak-auart EQ 'ZTA' OR vbak-auart EQ 'ZKE'.
@@ -182,7 +274,7 @@ IF vbak-auart EQ 'ZTA' OR vbak-auart EQ 'ZKE'.
 ENDIF.
 ENDIF.
 ENDENHANCEMENT.
-*$*$-End:   (1)---------------------------------------------------------------------------------$*$*
+*$*$-End:   (2)---------------------------------------------------------------------------------$*$*
 
 *  VBAP-zzfield = xxxx-zzfield2.
 
@@ -258,8 +350,8 @@ ENDFORM.
 *                                                                     *
 *---------------------------------------------------------------------*
 FORM userexit_pricing_prepare_tkomk.
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""$"$\SE:(2) Forma USEREXIT_PRICING_PREPARE_TKOMK, Inicio                                                                                                      A
-*$*$-Start: (2)---------------------------------------------------------------------------------$*$*
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""$"$\SE:(3) Forma USEREXIT_PRICING_PREPARE_TKOMK, Inicio                                                                                                      A
+*$*$-Start: (3)---------------------------------------------------------------------------------$*$*
 ENHANCEMENT 3  ZSDBA_MV45AFZZ_02.    "active version
 IF sy-tcode EQ 'VA01' OR sy-tcode EQ 'VA02'.
 IF vbak-auart EQ 'ZAC'.
@@ -329,7 +421,7 @@ ENDIF.
 ENDIF.
 ENDIF.
 ENDENHANCEMENT.
-*$*$-End:   (2)---------------------------------------------------------------------------------$*$*
+*$*$-End:   (3)---------------------------------------------------------------------------------$*$*
 
 *  TKOMK-zzfield = xxxx-zzfield2.
 
@@ -348,14 +440,14 @@ ENDFORM.
 *                                                                     *
 *---------------------------------------------------------------------*
 FORM userexit_pricing_prepare_tkomp.
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""$"$\SE:(3) Forma USEREXIT_PRICING_PREPARE_TKOMP, Inicio                                                                                                      A
-*$*$-Start: (3)---------------------------------------------------------------------------------$*$*
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""$"$\SE:(4) Forma USEREXIT_PRICING_PREPARE_TKOMP, Inicio                                                                                                      A
+*$*$-Start: (4)---------------------------------------------------------------------------------$*$*
 ENHANCEMENT 1  ZZMV45AFZZ.    "active version
 *
   MOVE VBAP-PSTYV TO TKOMP-ZZPSTYV.
 
 ENDENHANCEMENT.
-*$*$-End:   (3)---------------------------------------------------------------------------------$*$*
+*$*$-End:   (4)---------------------------------------------------------------------------------$*$*
 
 *  TKOMP-zzfield = xxxx-zzfield2.
 
@@ -389,13 +481,13 @@ ENDFORM.
 *                                                                     *
 *---------------------------------------------------------------------*
 FORM userexit_save_document.
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""$"$\SE:(4) Forma USEREXIT_SAVE_DOCUMENT, Inicio                                                                                                              A
-*$*$-Start: (4)---------------------------------------------------------------------------------$*$*
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""$"$\SE:(5) Forma USEREXIT_SAVE_DOCUMENT, Inicio                                                                                                              A
+*$*$-Start: (5)---------------------------------------------------------------------------------$*$*
 ENHANCEMENT 4  ZSDBA_MV45AFZZ_01.    "active version
 *
 vl_paso = ''.
 ENDENHANCEMENT.
-*$*$-End:   (4)---------------------------------------------------------------------------------$*$*
+*$*$-End:   (5)---------------------------------------------------------------------------------$*$*
 
 * Example:
 * CALL FUNCTION 'ZZ_EXAMPLE'
@@ -418,8 +510,8 @@ ENDFORM.
 *                                                                     *
 *---------------------------------------------------------------------*
 FORM userexit_save_document_prepare.
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""$"$\SE:(5) Forma USEREXIT_SAVE_DOCUMENT_PREPARE, Inicio                                                                                                      A
-*$*$-Start: (5)---------------------------------------------------------------------------------$*$*
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""$"$\SE:(6) Forma USEREXIT_SAVE_DOCUMENT_PREPARE, Inicio                                                                                                      A
+*$*$-Start: (6)---------------------------------------------------------------------------------$*$*
 ENHANCEMENT 1  ZSDBA_MV45AFZZ_01.    "active version
 ************************************************************************
 *  Program Name    : ZSDBA_MV45AFZZ_01.                                *
@@ -446,6 +538,7 @@ TYPES: BEGIN OF ty_posnr,
   kwmeng TYPE vbap-kwmeng, "ADD SF JCLS 02.07.2018
   pstyv TYPE vbap-pstyv, "ADD SF JCLS 02.07.2018
   prodh TYPE vbap-prodh, "ADD SF JCLS 03.07.2018
+  regalo TYPE c, "ADD SF JCLS 09.07.2018
   END OF ty_posnr.
 ********************** END OF INSERT SF SVSS 16.05.2018 ***********************
 
@@ -457,7 +550,9 @@ DATA: vok_ret   TYPE sy-ucomm,
       vl_pos   TYPE i,
       vl_line   TYPE i,
       wa_vbap LIKE LINE OF xvbap,
-      wa_posnr TYPE ty_posnr.
+      wa_posnr TYPE ty_posnr,
+      vl_delete TYPE c.
+ "ADD SF JCLS 06.07.2018
 ********************** END OF INSERT SF SVSS 16.05.2018 ***********************
 
 DATA: ls_zvsdtt_bonif      TYPE zvsdes_bonif,
@@ -486,10 +581,12 @@ DATA: ls_zvsdtt_bonif      TYPE zvsdes_bonif,
 
   FIELD-SYMBOLS: <fs_ivbep> LIKE LINE OF ivbep,
                  <fs_ivbap> LIKE LINE OF ivbap,
+                 <fs_xvbap_aux> LIKE LINE OF xvbap, "ADD SF JCLS 09.07.2018
                  <fs_xvbap> LIKE LINE OF xvbap,
                  <fs_xvbep> LIKE LINE OF xvbep,
                  <fs_posnr> LIKE LINE OF tl_posnr,
-                 <fs_ivbep1> LIKE LINE OF ivbep1.
+                 <fs_ivbep1> LIKE LINE OF ivbep1,
+                 <fs_xkomv> LIKE LINE OF xkomv. "ADD SF JCLS 04.07.2018
 ********************** END OF INSERT SF SVSS 16.05.2018 ***********************
 *if sy-uname = 'ABAP01'.
 
@@ -565,10 +662,24 @@ IF ( sy-tcode EQ 'VA01' OR sy-tcode EQ 'VA02' ) AND XVBAK-AUART = 'ZTA'
 
         CLEAR: wa_posnr, wa_vbap.
         LOOP AT xvbap INTO wa_vbap WHERE pstyv = 'TANN'.
+
+
+          "BEGIN OF INSERT SF JCLS 09.07.2018
+          IF wa_vbap-uepos IS NOT INITIAL.
+            READ TABLE xvbap INTO ls_vbap1 WITH KEY posnr = wa_vbap-uepos.
+            IF sy-subrc = 0.
+              IF ls_vbap1-kwmeng = wa_vbap-kwmeng.
+                wa_posnr-regalo = 'X'.
+              ENDIF.
+            ENDIF.
+          ENDIF.
+          "END OF INSERT SF JCLS 09.07.2018
+
           DELETE ivbap WHERE posnr = wa_vbap-posnr.
           DELETE xvbep WHERE posnr = wa_vbap-posnr.
           DELETE ivbep WHERE posnr = wa_vbap-posnr.
           DELETE ivbep1 WHERE posnr = wa_vbap-posnr.
+          DELETE xkomv WHERE kposn = wa_vbap-posnr. "ADD SF JCLS 04.07.2018
           wa_posnr-posnr = wa_vbap-posnr.
           wa_posnr-posnr_ant = wa_vbap-posnr.
           wa_posnr-matnr = wa_vbap-matnr. "ADD SF JCLS 02.07.2018
@@ -649,14 +760,18 @@ IF ( sy-tcode EQ 'VA01' OR sy-tcode EQ 'VA02' ) AND XVBAK-AUART = 'ZTA'
 **–Call standard performs to populate material details.
 *
 **–Perform for material validations and details
+
+                vbap-pstyv = 'TANN'.
+                vbap-kwmeng = rv45a-kwmeng.
+                vbep-wmeng = rv45a-kwmeng.
 *
                 PERFORM vbap-matnr_pruefen(sapfv45p) USING charx sy-subrc.
 **–Perform for item category determination. This will take care of substitution items if any for this material.
 *
 *              perform vbap-pstyv_pruefen(sapfv45p).
-                vbap-pstyv = 'TANN'.
-                vbap-kwmeng = rv45a-kwmeng.
-                vbep-wmeng = rv45a-kwmeng.
+*                vbap-pstyv = 'TANN'.
+*                vbap-kwmeng = rv45a-kwmeng.
+*                vbep-wmeng = rv45a-kwmeng.
 
 *–Perform for filling VBAP with default values from configuration and master tables
                 PERFORM vbap_fuellen(sapfv45p).
@@ -684,33 +799,68 @@ IF ( sy-tcode EQ 'VA01' OR sy-tcode EQ 'VA02' ) AND XVBAK-AUART = 'ZTA'
                       ENDIF.
                     ENDWHILE.
 
-                    READ TABLE xvbap ASSIGNING <fs_xvbap> WITH KEY posnr = wa_xvbap-posnr.
+*                    READ TABLE xvbap ASSIGNING <fs_xvbap> WITH KEY posnr = wa_xvbap-posnr. "MODIFY SF JCLS 09.07.2018
+                    READ TABLE xvbap ASSIGNING <fs_xvbap_aux> WITH KEY posnr = wa_xvbap-posnr.
                     IF sy-subrc = 0.
-                      add 10 to <fs_xvbap>-posnr.
-                      READ TABLE ivbap ASSIGNING <fs_ivbap> WITH KEY posnr = wa_xvbap-posnr.
-                      IF sy-subrc = 0.
-                        add 10 to <fs_ivbap>-posnr.
-                      ENDIF.
 
-                      READ TABLE xvbep ASSIGNING <fs_xvbep> WITH KEY posnr = wa_xvbap-posnr.
-                      IF sy-subrc = 0.
-                        add 10 to <fs_xvbep>-posnr.
-                      ENDIF.
 
-                      READ TABLE ivbep ASSIGNING <fs_ivbep> WITH KEY posnr = wa_xvbap-posnr.
-                      IF sy-subrc = 0.
-                        add 10 to <fs_ivbep>-posnr.
-                      ENDIF.
+                      LOOP AT xvbap ASSIGNING <fs_xvbap> WHERE posnr >= wa_xvbap-posnr.
+                        ADD 10 to <fs_xvbap>-posnr.
+                      ENDLOOP.
 
-                      READ TABLE ivbep1 ASSIGNING <fs_ivbep1> WITH KEY posnr = wa_xvbap-posnr.
-                      IF sy-subrc = 0.
-                        add 10 to <fs_ivbep1>-posnr.
-                      ENDIF.
+*                      add 10 to <fs_xvbap>-posnr. "DELETE SF JCLS 09.07.2018
 
-                      READ TABLE tl_posnr ASSIGNING <fs_posnr> WITH KEY posnr = <fs_xvbap>-posnr.
-                      IF sy-subrc = 0.
-                        add 10 to <fs_posnr>-posnr.
-                      ENDIF.
+                      LOOP AT ivbap ASSIGNING <fs_ivbap> WHERE posnr >= wa_xvbap-posnr.
+                        ADD 10 to <fs_ivbap>-posnr.
+                      ENDLOOP.
+
+*                      READ TABLE ivbap ASSIGNING <fs_ivbap> WITH KEY posnr = wa_xvbap-posnr.
+*                      IF sy-subrc = 0.
+*                        add 10 to <fs_ivbap>-posnr.
+*                      ENDIF.
+
+                      LOOP AT xvbep ASSIGNING <fs_xvbep> WHERE posnr >= wa_xvbap-posnr.
+                        ADD 10 to <fs_xvbep>-posnr.
+                      ENDLOOP.
+
+*                      READ TABLE xvbep ASSIGNING <fs_xvbep> WITH KEY posnr = wa_xvbap-posnr.
+*                      IF sy-subrc = 0.
+*                        add 10 to <fs_xvbep>-posnr.
+*                      ENDIF.
+
+                      LOOP AT ivbep ASSIGNING <fs_ivbep> WHERE posnr >= wa_xvbap-posnr.
+                        ADD 10 to <fs_ivbep>-posnr.
+                      ENDLOOP.
+
+*                      READ TABLE ivbep ASSIGNING <fs_ivbep> WITH KEY posnr = wa_xvbap-posnr.
+*                      IF sy-subrc = 0.
+*                        add 10 to <fs_ivbep>-posnr.
+*                      ENDIF.
+
+                      LOOP AT ivbep1 ASSIGNING <fs_ivbep1> WHERE posnr >= wa_xvbap-posnr.
+                        ADD 10 to <fs_ivbep1>-posnr.
+                      ENDLOOP.
+
+*                      READ TABLE ivbep1 ASSIGNING <fs_ivbep1> WITH KEY posnr = wa_xvbap-posnr.
+*                      IF sy-subrc = 0.
+*                        add 10 to <fs_ivbep1>-posnr.
+*                      ENDIF.
+
+                      "BEGIN OF INSERT SF JCLS 04.07.2018
+                      LOOP AT xkomv ASSIGNING <fs_xkomv> WHERE kposn >= wa_xvbap-posnr.
+                        ADD 10 to <fs_xkomv>-kposn.
+                      ENDLOOP.
+                      "END OF INSERT SF JCLS 04.07.2018
+
+                      LOOP AT tl_posnr ASSIGNING <fs_posnr> WHERE posnr >= wa_xvbap-posnr..
+                        ADD 10 to <fs_posnr>-posnr.
+                      ENDLOOP.
+
+*                      READ TABLE tl_posnr ASSIGNING <fs_posnr> WITH KEY posnr = <fs_xvbap>-posnr.
+*                      IF sy-subrc = 0.
+*                        add 10 to <fs_posnr>-posnr.
+*                      ENDIF.
+
                     ENDIF.
 
                     vbap-posnr = wa_xvbap-posnr.
@@ -752,14 +902,18 @@ IF ( sy-tcode EQ 'VA01' OR sy-tcode EQ 'VA02' ) AND XVBAK-AUART = 'ZTA'
                 vbap-matnr    = wa_posnr-matnr.
                 rv45a-kwmeng = wa_posnr-kwmeng.
 
+                vbap-pstyv = 'TANN'.
+                vbap-kwmeng = rv45a-kwmeng.
+                vbep-wmeng = rv45a-kwmeng.
+
 **–Perform for material validations and details
 *
                 PERFORM vbap-matnr_pruefen(sapfv45p) USING charx sy-subrc.
 **–Perform for item category determination. This will take care of substitution items if any for this material.
 
-                vbap-pstyv = 'TANN'.
-                vbap-kwmeng = rv45a-kwmeng.
-                vbep-wmeng = rv45a-kwmeng.
+*                vbap-pstyv = 'TANN'.
+*                vbap-kwmeng = rv45a-kwmeng.
+*                vbep-wmeng = rv45a-kwmeng.
 
 *–Perform for filling VBAP with default values from configuration and master tables
                 PERFORM vbap_fuellen(sapfv45p).
@@ -810,54 +964,32 @@ IF ( sy-tcode EQ 'VA01' OR sy-tcode EQ 'VA02' ) AND XVBAK-AUART = 'ZTA'
         DESCRIBE TABLE tl_posnr LINES vl_line.
         IF vl_line > 0.
           LOOP AT tl_posnr INTO wa_posnr.
-            CLEAR vbap.
-*            READ TABLE tl_vbap_aux INTO vbap WITH KEY posnr = wa_posnr-posnr_ant. "DELETE SF JCLS 01.07.2018
-            READ TABLE tl_vbap_aux INTO wa_vbap_aux WITH KEY posnr = wa_posnr-posnr_ant. "ADD SF JCLS 01.07.2018
 
-            IF SY-SUBRC = 0.
+            IF wa_posnr-regalo = 'X'.
 
-              "BEGIN OF DELETE SF JCLS 01.07.2018
-*                vbap-posnr = wa_posnr-posnr.
-*                APPEND vbap to xvbap.
-*
-*                wa_ivbap-posnr = wa_posnr-posnr.
-*                APPEND wa_ivbap to ivbap.
-*
-*                READ TABLE tl_vbep_aux INTO wa_xvbep WITH KEY posnr = wa_posnr-posnr_ant.
-*                wa_xvbep-posnr = wa_posnr-posnr.
-*                APPEND wa_xvbep to xvbep.
-*
-*                READ TABLE tl_ivbep_aux INTO wa_ivbep WITH KEY posnr = wa_posnr-posnr_ant.
-*                wa_ivbep-posnr = wa_posnr-posnr.
-*                APPEND wa_ivbep to ivbep.
-*
-*                READ TABLE tl_ivbep1_aux INTO wa_ivbep1 WITH KEY posnr = wa_posnr-posnr_ant.
-*                 wa_ivbep1-posnr = wa_posnr-posnr.
-*                APPEND wa_ivbep1 to ivbep1.
+              READ TABLE tl_vbap_aux INTO wa_vbap_aux WITH KEY posnr = wa_posnr-posnr_ant.
 
-              "END OF DELETE SF JCLS 01.07.2018
-
-              "BEGIN OF INSERT SF JCLS 01.07.2018 // Si no existen productos con esa jerarquia, volverlo a agregar (Regalos)
-
-              READ TABLE xvbap[] INTO wa_xvbap WITH KEY prodh+0(6) = wa_vbap_aux-prodh+0(6).
-              IF sy-subrc NE 0.
+              IF sy-subrc = 0.
 
 **–Initialize workareas for VBAP and VBEP
-*
+                CLEAR vbap.
                 PERFORM vbap_unterlegen(sapfv45p).
                 PERFORM vbep_unterlegen(sapfv45e).
 
                 vbap-matnr    = wa_vbap_aux-matnr.
                 rv45a-kwmeng = wa_vbap_aux-kwmeng.
+                vbap-pstyv = 'TANN'.
+                vbap-kwmeng = rv45a-kwmeng.
+                vbep-wmeng = rv45a-kwmeng.
 
 **–Perform for material validations and details
 *
                 PERFORM vbap-matnr_pruefen(sapfv45p) USING charx sy-subrc.
 **–Perform for item category determination. This will take care of substitution items if any for this material.
 
-                vbap-pstyv = 'TANN'.
-                vbap-kwmeng = rv45a-kwmeng.
-                vbep-wmeng = rv45a-kwmeng.
+*                vbap-pstyv = 'TANN'.
+*                vbap-kwmeng = rv45a-kwmeng.
+*                vbep-wmeng = rv45a-kwmeng.
 
 *–Perform for filling VBAP with default values from configuration and master tables
                 PERFORM vbap_fuellen(sapfv45p).
@@ -893,9 +1025,100 @@ IF ( sy-tcode EQ 'VA01' OR sy-tcode EQ 'VA02' ) AND XVBAK-AUART = 'ZTA'
                 PERFORM vbap_bearbeiten_ende(sapfv45p).
 
               ENDIF.
-              "END OF INSERT SF JCLS 01.07.2018 // Si no existen productos con esa jerarquia, volverlo a agregar (Regalos)
 
             ENDIF.
+
+
+
+***            CLEAR vbap.
+****            READ TABLE tl_vbap_aux INTO vbap WITH KEY posnr = wa_posnr-posnr_ant. "DELETE SF JCLS 01.07.2018
+***            READ TABLE tl_vbap_aux INTO wa_vbap_aux WITH KEY posnr = wa_posnr-posnr_ant. "ADD SF JCLS 01.07.2018
+***
+***            IF SY-SUBRC = 0.
+***
+***              "BEGIN OF DELETE SF JCLS 01.07.2018
+****                vbap-posnr = wa_posnr-posnr.
+****                APPEND vbap to xvbap.
+****
+****                wa_ivbap-posnr = wa_posnr-posnr.
+****                APPEND wa_ivbap to ivbap.
+****
+****                READ TABLE tl_vbep_aux INTO wa_xvbep WITH KEY posnr = wa_posnr-posnr_ant.
+****                wa_xvbep-posnr = wa_posnr-posnr.
+****                APPEND wa_xvbep to xvbep.
+****
+****                READ TABLE tl_ivbep_aux INTO wa_ivbep WITH KEY posnr = wa_posnr-posnr_ant.
+****                wa_ivbep-posnr = wa_posnr-posnr.
+****                APPEND wa_ivbep to ivbep.
+****
+****                READ TABLE tl_ivbep1_aux INTO wa_ivbep1 WITH KEY posnr = wa_posnr-posnr_ant.
+****                 wa_ivbep1-posnr = wa_posnr-posnr.
+****                APPEND wa_ivbep1 to ivbep1.
+***
+***              "END OF DELETE SF JCLS 01.07.2018
+***
+***              "BEGIN OF INSERT SF JCLS 01.07.2018 // Si no existen productos con esa jerarquia, volverlo a agregar (Regalos)
+***
+***              READ TABLE xvbap[] INTO wa_xvbap WITH KEY prodh+0(6) = wa_vbap_aux-prodh+0(6).
+***              IF sy-subrc NE 0.
+***
+*****–Initialize workareas for VBAP and VBEP
+****
+***                PERFORM vbap_unterlegen(sapfv45p).
+***                PERFORM vbep_unterlegen(sapfv45e).
+***
+***                vbap-matnr    = wa_vbap_aux-matnr.
+***                rv45a-kwmeng = wa_vbap_aux-kwmeng.
+***                vbap-pstyv = 'TANN'.
+***                vbap-kwmeng = rv45a-kwmeng.
+***                vbep-wmeng = rv45a-kwmeng.
+***
+*****–Perform for material validations and details
+****
+***                PERFORM vbap-matnr_pruefen(sapfv45p) USING charx sy-subrc.
+*****–Perform for item category determination. This will take care of substitution items if any for this material.
+***
+****                vbap-pstyv = 'TANN'.
+****                vbap-kwmeng = rv45a-kwmeng.
+****                vbep-wmeng = rv45a-kwmeng.
+***
+****–Perform for filling VBAP with default values from configuration and master tables
+***                PERFORM vbap_fuellen(sapfv45p).
+***                PERFORM vbap-matnr_null_pruefen(sapfv45p).
+***
+***                PERFORM vbep-wmeng_setzen(sapfv45e).
+*****–Perform to check sales unit
+****
+***                PERFORM vbap-vrkme_pruefen(sapfv45p) USING charx
+***                        CHANGING sy-subrc sy-msgid sy-msgty sy-msgno
+***                                 sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+***
+****–Perform to update VBAP values
+***
+***                vbap-posnr = wa_posnr-posnr.
+***                vbep-posnr = wa_posnr-posnr.
+***                PERFORM vbap_bearbeiten(sapfv45p).
+***
+****–Perform for filling VBEP with default values. This will take care of schedule lines of the item
+***                PERFORM vbep_fuellen(sapfv45e).
+***
+****–Perform to check quantity
+***                PERFORM vbep-wmeng_pruefen(sapfv45e) USING charx
+***                       CHANGING sy-subrc sy-msgid sy-msgty sy-msgno
+***                                sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+***
+****–Perform to update VBEP values
+***                  *VBEP-CMENG = VBEP-CMENG. " SF EAHM 2018 06 29, evitar duplicar cantidad pedido en redondeo
+***                  PERFORM vbep_bearbeiten(sapfv45e). " modificar repartos y cantidad condifirmada
+***
+***
+****–Perform to fill conditions and pricing data
+***                PERFORM vbap_bearbeiten_ende(sapfv45p).
+***
+***              ENDIF.
+***              "END OF INSERT SF JCLS 01.07.2018 // Si no existen productos con esa jerarquia, volverlo a agregar (Regalos)
+***
+***            ENDIF.
           ENDLOOP.
         ENDIF.
 
@@ -923,11 +1146,80 @@ IF ( sy-tcode EQ 'VA01' OR sy-tcode EQ 'VA02' ) AND XVBAK-AUART = 'ZTA'
         ENDLOOP.
   ENDIF.
 
+
+      vl_delete = 0. "ADD SF JCLS 06.07.2018
       LOOP AT xvbap ASSIGNING <fs_xvbap>.
         IF <fs_xvbap>-PSTYV = 'TANN'.
           <fs_xvbap>-UEPOS = <fs_xvbap>-POSNR - 10.
+
+          "BEGIN OF INSERT SF JCLS 06.07.2018 // Eliminar bonificaciones generadas por mas bonificaciones.
+
+          READ TABLE xvbap INTO wa_vbap WITH KEY posnr = <fs_xvbap>-UEPOS.
+          IF sy-subrc NE 0.
+
+            DELETE ivbap WHERE posnr = <fs_xvbap>-posnr.
+            DELETE xvbep WHERE posnr = <fs_xvbap>-posnr.
+            DELETE ivbep WHERE posnr = <fs_xvbap>-posnr.
+            DELETE ivbep1 WHERE posnr = <fs_xvbap>-posnr.
+            DELETE xkomv WHERE kposn = <fs_xvbap>-posnr.
+            DELETE xvbap WHERE posnr = <fs_xvbap>-posnr.
+
+            vl_delete = 1.
+
+          ELSEIF sy-subrc = 0.
+
+            IF wa_vbap-pstyv = 'TANN'.
+
+              DELETE ivbap WHERE posnr = <fs_xvbap>-posnr.
+              DELETE xvbep WHERE posnr = <fs_xvbap>-posnr.
+              DELETE ivbep WHERE posnr = <fs_xvbap>-posnr.
+              DELETE ivbep1 WHERE posnr = <fs_xvbap>-posnr.
+              DELETE xkomv WHERE kposn = <fs_xvbap>-posnr.
+              DELETE xvbap WHERE posnr = <fs_xvbap>-posnr.
+
+              vl_delete = 1.
+
+            ENDIF.
+
+          ENDIF.
+
+         "END OF INSERT SF JCLS 06.07.2018 // Eliminar bonificaciones generadas por mas bonificaciones.
+
         ENDIF.
+
       ENDLOOP.
+
+       "BEGIN OF INSERT SF JCLS 06.07.2018 // Si se borraron posiciones, reorganizar indices.
+       IF vl_delete = 1.
+
+          SORT: xvbap ASCENDING by posnr,
+            ivbap ASCENDING by posnr,
+            xvbep ASCENDING by posnr,
+            ivbep ASCENDING by posnr,
+            ivbep1 ASCENDING by posnr.
+
+          CLEAR vl_pos.
+          LOOP AT ivbap ASSIGNING <fs_ivbap>.
+            add 1 to vl_pos.
+            <fs_ivbap>-tabix = vl_pos.
+          ENDLOOP.
+
+          CLEAR vl_pos.
+          LOOP AT ivbep ASSIGNING <fs_ivbep>.
+            add 1 to vl_pos.
+            <fs_ivbep>-tabix = vl_pos.
+          ENDLOOP.
+
+          CLEAR vl_pos.
+          LOOP AT ivbep1 ASSIGNING <fs_ivbep1>.
+            add 1 to vl_pos.
+            <fs_ivbep1>-tabix = vl_pos.
+          ENDLOOP.
+
+        ENDIF.
+        "END OF INSERT SF JCLS 06.07.2018 // Si se borraron posiciones, reorganizar indices.
+
+
 ********************** END OF INSERT SF SVSS 16.05.2018 ***********************
       CALL FUNCTION 'POPUP_TO_CONFIRM'
         EXPORTING
@@ -2202,13 +2494,13 @@ ENDIF. "sy-tcode
 *ENDIF.
 
 ENDENHANCEMENT.
-*$*$-End:   (5)---------------------------------------------------------------------------------$*$*
+*$*$-End:   (6)---------------------------------------------------------------------------------$*$*
 
 
 ENDFORM.
 *eject
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""$"$\SE:(6) Include MV45AFZZ, Final                                                                                                                           S
-*$*$-Start: (6)---------------------------------------------------------------------------------$*$*
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""$"$\SE:(7) Include MV45AFZZ, Final                                                                                                                           S
+*$*$-Start: (7)---------------------------------------------------------------------------------$*$*
 ENHANCEMENT 2  ZSDBA_MV45AFZZ_01.    "active version
 *
 *FORM f_convert_value using p_matnr        TYPE MARA-MATNR
@@ -2892,4 +3184,4 @@ ENHANCEMENT 2  ZSDBA_MV45AFZZ_01.    "active version
 *  pt_escalas[] = lt_escalas[].
 *ENDFORM.
 ENDENHANCEMENT.
-*$*$-End:   (6)---------------------------------------------------------------------------------$*$*
+*$*$-End:   (7)---------------------------------------------------------------------------------$*$*
