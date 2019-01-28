@@ -1,0 +1,2895 @@
+***INCLUDE MV45AFZZ .
+
+************************************************************************
+*                                                                      *
+* This include is reserved for user modifications                      *
+*                                                                      *
+* Forms for sales document processing                                  *
+*                                                                      *
+* The name of modification modules should begin with 'ZZ'.             *
+*                                                                      *
+************************************************************************
+
+*---------------------------------------------------------------------*
+*       FORM ZZEXAMPLE                                                *
+*---------------------------------------------------------------------*
+*       text......................................                    *
+*---------------------------------------------------------------------*
+*FORM ZZEXAMPLE.
+
+*  ...
+
+*ENDFORM.
+
+*eject
+*---------------------------------------------------------------------*
+*       FORM USEREXIT_DELETE_DOCUMENT                                 *
+*---------------------------------------------------------------------*
+*       This userexit can be used to delete data in additional tables *
+*       when a sales document is deleted.                             *
+*                                                                     *
+*      This form is called in dialog at the end of form BELEG_LOESCHEN*
+*      just before form BELEG_SICHERN is performed to delete the      *
+*      datas on the database.                                         *
+*                                                                     *
+*---------------------------------------------------------------------*
+FORM userexit_delete_document.
+
+ENDFORM.
+*eject
+
+*---------------------------------------------------------------------*
+*       FORM USEREXIT_FIELD_MODIFICATION                              *
+*---------------------------------------------------------------------*
+*       This userexit can be used to modify the attributes of         *
+*       screen fields.                                                *
+*       This form is processed for each field in the screen.          *
+*                                                                     *
+*       The use of the fields screen-group1 to screen-group4 is:      *
+*                                                                     *
+*       Screen-group1: Automatic modification contolles by transaction*
+*                      MFAW.                                          *
+*       Screen-group2: Contents 'LOO' for steploop-fields.            *
+*       Screen-group3: Used for modififaction, which are dependent on *
+*                      control tables or other fix information.       *
+*       Screen-group4: Unused                                         *
+*                                                                     *
+*       For field mofifications, which are dependent on the document  *
+*       status, you can use the status field in the workareas         *
+*       XVBAP for item status and XVBUK for header status.            *
+*                                                                     *
+*       This form is called from module FELDAUSWAHL.                  *
+*                                                                     *
+*---------------------------------------------------------------------*
+FORM userexit_field_modification.
+  DATA l_bukrs TYPE zsdslst001-bukrs.
+  DATA l_ernam TYPE zsdslst001-ernam.
+  DATA l_zwels TYPE knb1-zwels.
+
+  CASE screen-name.
+    WHEN 'VBKD-ZTERM'.
+      SELECT SINGLE bukrs ernam INTO (l_bukrs, l_ernam)
+       FROM zsdslst001
+        WHERE bukrs EQ vbak-bukrs_vf
+          AND ernam EQ sy-uname.
+      IF sy-subrc NE 0.
+        screen-input = 0.
+      ENDIF.
+    WHEN 'VBKD-ZLSCH'.
+      CLEAR: l_zwels.
+      SELECT SINGLE zwels INTO l_zwels
+       FROM knb1
+        WHERE kunnr EQ vbak-kunnr
+          AND bukrs EQ vbak-bukrs_vf.
+      IF sy-subrc EQ 0.
+        IF vbkd-zlsch EQ space.
+          vbkd-zlsch = l_zwels(1).
+        ENDIF.
+      ENDIF.
+*      SELECT SINGLE bukrs ernam INTO (l_bukrs, l_ernam)
+*       FROM zsdslst001
+*        WHERE bukrs EQ vbak-bukrs_vf
+*          AND ernam EQ sy-uname.
+*      IF sy-subrc NE 0.
+*        screen-input = 0.
+*      ENDIF.
+  ENDCASE.
+
+* CASE SCREEN-GROUP3.
+*   WHEN '900'.
+*     IF VBAK-VBTYP NE 'A'.
+*       SCREEN-ACTIVE = 0.
+*     ENDIF.
+* ENDCASE.
+
+* CASE SCREEN-NAME.
+*   WHEN 'VBAK-VBELN'.
+*     SCREEN-ACTIVE = 0.
+* ENDCASE.
+
+ENDFORM.
+*eject
+
+*---------------------------------------------------------------------*
+*       FORM USEREXIT_MOVE_FIELD_TO_VBAK                              *
+*---------------------------------------------------------------------*
+*       This userexit can be used to move some fields into the sales  *
+*       dokument header workaerea VBAK.                               *
+*                                                                     *
+*       SVBAK-TABIX = 0:  Create header                               *
+*       SVBAK-TABIX > 0:  Change header                               *
+*                                                                     *
+*       This form is called at the end of form VBAK_FUELLEN.          *
+*                                                                     *
+*---------------------------------------------------------------------*
+FORM userexit_move_field_to_vbak.
+
+*  vbak-zzfield = xxxx-zzfield2.
+
+ENDFORM.
+*eject
+
+*---------------------------------------------------------------------*
+*       FORM USEREXIT_MOVE_FIELD_TO_VBAP                              *
+*---------------------------------------------------------------------*
+*       This userexit can be used to move some fields into the sales  *
+*       dokument item workaerea VBAP                                  *
+*                                                                     *
+*       SVBAP-TABIX = 0:  Create item                                 *
+*       SVBAP-TABIX > 0:  Change item                                 *
+*                                                                     *
+*       This form is called at the end of form VBAP_FUELLEN.          *
+*                                                                     *
+*---------------------------------------------------------------------*
+FORM userexit_move_field_to_vbap.
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""$"$\SE:(1) Forma USEREXIT_MOVE_FIELD_TO_VBAP, Inicio                                                                                                         A
+*$*$-Start: (1)---------------------------------------------------------------------------------$*$*
+ENHANCEMENT 1  ZSDBA_MV45AFZZ_02.    "active version
+IF sy-tcode EQ 'VA01' OR sy-tcode EQ 'VA02'.
+IF vbak-auart EQ 'ZTA' OR vbak-auart EQ 'ZKE'.
+  DATA tl_tvarvc TYPE zglty_tvarvc2.
+  DATA wl_tvarvc TYPE LINE OF zglty_tvarvc2.
+  DATA vl_knumh  TYPE a904-knumh.
+  DATA vl_netwr  TYPE vbap-netwr.
+  CONSTANTS vl_name TYPE rvari_vnam VALUE 'MV45AFZZ02_MATNR'.
+
+  CLEAR: tl_tvarvc, tl_tvarvc[], wl_tvarvc, vl_knumh, vl_netwr.
+*Busqueda de Materiales CASCOS
+* Leer los datos de TVARVC
+  SELECT sign opti low high
+    INTO TABLE tl_tvarvc FROM tvarvc WHERE name = vl_name.
+  IF sy-subrc EQ 0.
+    READ TABLE tl_tvarvc WITH KEY low = vbap-matnr INTO wl_tvarvc.
+    IF sy-subrc EQ 0.
+      SELECT SINGLE knumh
+        INTO vl_knumh FROM a904 WHERE matnr EQ wl_tvarvc-low
+                                  AND datbi GE sy-datum
+                                  AND datab LE sy-datum.
+      IF sy-subrc EQ 0.
+        SELECT SINGLE kbetr
+          INTO vl_netwr FROM konp WHERE knumh EQ vl_knumh.
+        IF sy-subrc EQ 0.
+          IF vbak-auart EQ 'ZTA'.
+           vbap-netwr = vl_netwr.
+          ELSEIF vbak-auart EQ 'ZKE'.
+           vbap-pstyv = 'KEN'.
+           vbap-netwr = vl_netwr.
+          ENDIF.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+  ENDIF.
+ENDIF.
+ENDIF.
+ENDENHANCEMENT.
+*$*$-End:   (1)---------------------------------------------------------------------------------$*$*
+
+*  VBAP-zzfield = xxxx-zzfield2.
+
+ENDFORM.
+*eject
+
+*---------------------------------------------------------------------*
+*       FORM USEREXIT_MOVE_FIELD_TO_VBEP                              *
+*---------------------------------------------------------------------*
+*       This userexit can be used to move some fields into the sales  *
+*       dokument schedule line workaerea VBEP                         *
+*                                                                     *
+*       SVBEP-TABIX = 0:  Create schedule line                        *
+*       SVBEP-TABIX > 0:  Change schedule line                        *
+*                                                                     *
+*       This form is called at the end of form VBEP_FUELLEN.          *
+*                                                                     *
+*---------------------------------------------------------------------*
+FORM userexit_move_field_to_vbep.
+
+*  VBEP-zzfield = xxxx-zzfield2.
+
+ENDFORM.
+*eject
+
+*---------------------------------------------------------------------*
+*       FORM USEREXIT_MOVE_FIELD_TO_VBKD                              *
+*---------------------------------------------------------------------*
+*       This userexit can be used to move some fields into the sales  *
+*       dokument business data workaerea VBKD                         *
+*                                                                     *
+*       SVBKD-TABIX = 0:  Create data                                 *
+*       SVBKD-TABIX > 0:  Change data                                 *
+*                                                                     *
+*       This form is called at the end of form VBKD_FUELLEN.          *
+*                                                                     *
+*---------------------------------------------------------------------*
+FORM userexit_move_field_to_vbkd.
+
+*  VBKD-zzfield = xxxx-zzfield2.
+
+ENDFORM.
+*eject
+
+*---------------------------------------------------------------------*
+*       FORM USEREXIT_NUMBER_RANGE                                    *
+*---------------------------------------------------------------------*
+*       This userexit can be used to determine the numberranges for   *
+*       the internal document number.                                 *
+*                                                                     *
+*       US_RANGE_INTERN - internal number range                       *
+*                                                                     *
+*       This form is called from form BELEG_SICHERN                   *
+*                                                                     *
+*---------------------------------------------------------------------*
+FORM userexit_number_range USING us_range_intern.
+
+* Example: Numer range from TVAK like in standard
+* US_RANGE_INTERN = TVAK-NUMKI.
+
+ENDFORM.
+*eject
+
+*---------------------------------------------------------------------*
+*       FORM USEREXIT_PRICING_PREPARE_TKOMK                           *
+*---------------------------------------------------------------------*
+*       This userexit can be used to move additional fields into the  *
+*       communication table which is used for pricing:                *
+*                                                                     *
+*       TKOMK for header fields                                       *
+*                                                                     *
+*       This form is called from form PREISFINDUNG_VORBEREITEN.       *
+*                                                                     *
+*---------------------------------------------------------------------*
+FORM userexit_pricing_prepare_tkomk.
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""$"$\SE:(2) Forma USEREXIT_PRICING_PREPARE_TKOMK, Inicio                                                                                                      A
+*$*$-Start: (2)---------------------------------------------------------------------------------$*$*
+ENHANCEMENT 3  ZSDBA_MV45AFZZ_02.    "active version
+IF sy-tcode EQ 'VA01' OR sy-tcode EQ 'VA02'.
+IF vbak-auart EQ 'ZAC'.
+  DATA vl_kbert    TYPE komv-kbetr.
+  DATA vl_porce    TYPE char3.
+  DATA vl_porcen   TYPE float.
+  DATA vl_kbertt   TYPE komv-kbetr.
+  DATA vl_marca    TYPE vbap-zmarca.
+  DATA vl_segmento TYPE vbap-zsegmento.
+  DATA vl_uso      TYPE vbap-zuso.
+  DATA vl_mes      TYPE vbap-zmes.
+  DATA vl_knumh    TYPE a906-knumh.
+
+IF sy-dynnr EQ '4462'.
+*SELECT SINGLE knumh INTO vl_knumh
+*  FROM A906 WHERE matnr EQ vbap-matnr
+*              AND pltyp EQ vbkd-pltyp
+*              AND datbi GE sy-datum
+*              AND datab LE sy-datum.
+*IF vl_knumh IS INITIAL.
+*  SELECT SINGLE knumh INTO vl_knumh
+*   FROM A905 WHERE matnr EQ vbap-matnr
+*               AND kunnr EQ vbak-kunnr
+*               AND datbi GE sy-datum
+*               AND datab LE sy-datum.
+*  IF vl_knumh IS INITIAL.
+*         SELECT SINGLE knumh INTO vl_knumh
+*           FROM A909 WHERE matnr EQ vbap-matnr
+*                       AND kdgrp EQ vbkd-kdgrp
+*                       AND datbi GE sy-datum
+*                       AND datab LE sy-datum.
+*    IF vl_knumh IS INITIAL.
+      SELECT SINGLE knumh INTO vl_knumh
+        FROM A904 WHERE matnr EQ vbap-matnr
+                    AND datbi GE sy-datum
+                    AND datab LE sy-datum.
+*    ENDIF.
+*  ENDIF.
+*ENDIF.
+
+IF NOT vl_knumh IS INITIAL.
+  SELECT SINGLE kbetr
+    INTO vl_kbert FROM konp WHERE knumh EQ vl_knumh.
+ENDIF.
+
+IF NOT vbap-zmes IS INITIAL.
+    SELECT SINGLE porcentaje
+      FROM zsdslst002 INTO vl_porce
+      WHERE marca    EQ vbap-zmarca
+        AND segmento EQ vbap-zsegmento
+        AND uso      EQ vbap-zuso
+        AND mes      EQ vbap-zmes.
+    vl_porcen = vl_porce.
+    vl_porcen = ( vl_porcen / 100 ).
+    IF vl_porce GT 0.
+      IF sy-subrc EQ 0.
+        vl_kbert = ( vl_kbert * vl_porcen ).
+        LOOP AT xkomv WHERE kschl EQ 'ZPR0'
+                        AND kposn EQ vbap-posnr.
+          xkomv-kbetr = vl_kbert.
+          MODIFY xkomv.
+        ENDLOOP.
+      ENDIF.
+    ENDIF.
+ENDIF.
+ENDIF.
+ENDIF.
+ENDIF.
+ENDENHANCEMENT.
+*$*$-End:   (2)---------------------------------------------------------------------------------$*$*
+
+*  TKOMK-zzfield = xxxx-zzfield2.
+
+ENDFORM.
+*eject
+
+*---------------------------------------------------------------------*
+*       FORM USEREXIT_PRICING_PREPARE_TKOMP                           *
+*---------------------------------------------------------------------*
+*       This userexit can be used to move additional fields into the  *
+*       communication table which is used for pricing:                *
+*                                                                     *
+*       TKOMP for item fields                                         *
+*                                                                     *
+*       This form is called from form PREISFINDUNG_VORBEREITEN.       *
+*                                                                     *
+*---------------------------------------------------------------------*
+FORM userexit_pricing_prepare_tkomp.
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""$"$\SE:(3) Forma USEREXIT_PRICING_PREPARE_TKOMP, Inicio                                                                                                      A
+*$*$-Start: (3)---------------------------------------------------------------------------------$*$*
+ENHANCEMENT 1  ZZMV45AFZZ.    "active version
+*
+  MOVE VBAP-PSTYV TO TKOMP-ZZPSTYV.
+
+ENDENHANCEMENT.
+*$*$-End:   (3)---------------------------------------------------------------------------------$*$*
+
+*  TKOMP-zzfield = xxxx-zzfield2.
+
+ENDFORM.
+*eject
+
+*---------------------------------------------------------------------*
+*       FORM USEREXIT_READ_DOCUMENT                                   *
+*---------------------------------------------------------------------*
+*       This userexit can be used to read data in additional tables   *
+*       when the program reads a sales document.                      *
+*                                                                     *
+*       This form is called at the end of form BELEG_LESEN.           *
+*                                                                     *
+*---------------------------------------------------------------------*
+FORM userexit_read_document.
+
+ENDFORM.
+*eject
+
+*---------------------------------------------------------------------*
+*       FORM USEREXIT_SAVE_DOCUMENT                                   *
+*---------------------------------------------------------------------*
+*       This userexit can be used to save data in additional tables   *
+*       when a document is saved.                                     *
+*                                                                     *
+*       If field T180-TRTYP contents 'H', the document will be        *
+*       created, else it will be changed.                             *
+*                                                                     *
+*       This form is called at from form BELEG_SICHERN, before COMMIT *
+*                                                                     *
+*---------------------------------------------------------------------*
+FORM userexit_save_document.
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""$"$\SE:(4) Forma USEREXIT_SAVE_DOCUMENT, Inicio                                                                                                              A
+*$*$-Start: (4)---------------------------------------------------------------------------------$*$*
+ENHANCEMENT 4  ZSDBA_MV45AFZZ_01.    "active version
+*
+vl_paso = ''.
+ENDENHANCEMENT.
+*$*$-End:   (4)---------------------------------------------------------------------------------$*$*
+
+* Example:
+* CALL FUNCTION 'ZZ_EXAMPLE'
+*      IN UPDATE TASK
+*      EXPORTING
+*           ZZTAB = ZZTAB.
+
+ENDFORM.
+*eject
+*---------------------------------------------------------------------*
+*       FORM USEREXIT_SAVE_DOCUMENT_PREPARE                           *
+*---------------------------------------------------------------------*
+*       This userexit can be used for changes or checks, before a     *
+*       document is saved.                                            *
+*                                                                     *
+*       If field T180-TRTYP contents 'H', the document will be        *
+*       created, else it will be changed.                             *
+*                                                                     *
+*       This form is called at the beginning of form BELEG_SICHERN    *
+*                                                                     *
+*---------------------------------------------------------------------*
+FORM userexit_save_document_prepare.
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""$"$\SE:(5) Forma USEREXIT_SAVE_DOCUMENT_PREPARE, Inicio                                                                                                      A
+*$*$-Start: (5)---------------------------------------------------------------------------------$*$*
+ENHANCEMENT 1  ZSDBA_MV45AFZZ_01.    "active version
+************************************************************************
+*  Program Name    : ZSDBA_MV45AFZZ_01.                                *
+*  Object ID       : SD-SLS-004                                        *
+*  Title           : Programa principal.                               *
+*  Country         : MX.                                               *
+*  Author          : Oscar Alberto González Martín                     *
+*  Creation Date   : 30/03/2017.                                       *
+*  Logical DB      :                                                   *
+*  Reference       :                                                   *
+*  Scheduling      :                                                   *
+*  Description     : Ampliación de VBN1 y VBN2 bonificaciones en especie
+************************************************************************
+*----------------------------------------------------------------------*
+* Modifications                                                        *
+*  User ID     Date        Request     Description                     *
+*  xxxxxxxx    xxxxxxxxxx  xxxxxxxxxx  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx *
+************************************************************************
+******************** BEGIN OF INSERT SF SVSS 16.05.2018 ***********************
+TYPES: BEGIN OF ty_posnr,
+  posnr TYPE vbap-posnr,
+  posnr_ant TYPE vbap-posnr,
+  matnr TYPE vbap-matnr, "ADD SF JCLS 02.07.2018
+  kwmeng TYPE vbap-kwmeng, "ADD SF JCLS 02.07.2018
+  pstyv TYPE vbap-pstyv, "ADD SF JCLS 02.07.2018
+  prodh TYPE vbap-prodh, "ADD SF JCLS 03.07.2018
+  END OF ty_posnr.
+********************** END OF INSERT SF SVSS 16.05.2018 ***********************
+
+DATA: vok_ret   TYPE sy-ucomm,
+      vl_kwmeng TYPE vbap-kwmeng,
+      ans       TYPE char01,
+******************** BEGIN OF INSERT SF SVSS 16.05.2018 ***********************
+      vl_flag   TYPE i,
+      vl_pos   TYPE i,
+      vl_line   TYPE i,
+      wa_vbap LIKE LINE OF xvbap,
+      wa_posnr TYPE ty_posnr.
+********************** END OF INSERT SF SVSS 16.05.2018 ***********************
+
+DATA: ls_zvsdtt_bonif      TYPE zvsdes_bonif,
+      ls_vbap              TYPE vbapvb,
+      ls_vbap1             TYPE vbapvb, "ADD SF JCLS 02.07.2018
+      ls_vbap_bon          TYPE vbapvb,
+      tl_zvsdtt_bonif      TYPE STANDARD TABLE OF zvsdes_bonif,
+      tl_zvsdtt_bonif_acum TYPE STANDARD TABLE OF zvsdes_bonif,
+      tl_zvsdtt_bonif_100  TYPE STANDARD TABLE OF zvsdes_bonif,
+      tl_vbap              TYPE STANDARD TABLE OF vbapvb,
+      tl_vbap_bon          TYPE STANDARD TABLE OF vbapvb,
+      tl_vbap_bon_acum     TYPE STANDARD TABLE OF vbapvb,
+******************** BEGIN OF INSERT SF SVSS 16.05.2018 ***********************
+      tl_vbap2              TYPE STANDARD TABLE OF vbapvb,
+      tl_posnr             TYPE STANDARD TABLE OF ty_posnr,
+      tl_vbap_aux          TYPE STANDARD TABLE OF vbapvb,
+      tl_vbep_aux          TYPE STANDARD TABLE OF vbepvb,
+      tl_ivbep_aux          TYPE STANDARD TABLE OF BEZIVBEP,
+      tl_ivbep1_aux          TYPE STANDARD TABLE OF BEZIVBEP1,
+      wa_xvbap             LIKE LINE OF xvbap,
+      wa_vbap_aux          LIKE LINE OF tl_vbap_aux, "ADD SF JCLS 01.07.2018
+      wa_ivbap             LIKE LINE OF ivbap,
+      wa_xvbep             LIKE LINE OF xvbep,
+      wa_ivbep             LIKE LINE OF tl_ivbep_aux,
+      wa_ivbep1             LIKE LINE OF tl_ivbep1_aux.
+
+  FIELD-SYMBOLS: <fs_ivbep> LIKE LINE OF ivbep,
+                 <fs_ivbap> LIKE LINE OF ivbap,
+                 <fs_xvbap> LIKE LINE OF xvbap,
+                 <fs_xvbep> LIKE LINE OF xvbep,
+                 <fs_posnr> LIKE LINE OF tl_posnr,
+                 <fs_ivbep1> LIKE LINE OF ivbep1.
+********************** END OF INSERT SF SVSS 16.05.2018 ***********************
+*if sy-uname = 'ABAP01'.
+
+IF ( sy-tcode EQ 'VA01' OR sy-tcode EQ 'VA02' ) AND XVBAK-AUART = 'ZTA'
+   AND vl_paso NE '1'. "Si ya se seleccionaron Bonificaciones ya no vuelve a entrar
+
+
+  tl_vbap[]     = xvbap[].
+  tl_vbap_aux[] = xvbap[].
+  tl_vbap_bon[] = xvbap[].
+  tl_vbep_aux[] = xvbep[].
+
+  DELETE tl_vbap     WHERE kwmeng = 0.
+  DELETE tl_vbap_bon WHERE pstyv = 'TAN' OR kwmeng = 0.
+  DELETE tl_vbap_bon WHERE pstyv = 'TANN'.
+
+******************** BEGIN OF INSERT SF SVSS 16.05.2018 ***********************
+  DELETE tl_vbap     WHERE pstyv = 'TANN'.
+  IF sy-subrc = 0.
+    vl_flag = 1.
+  ENDIF.
+********************** END OF INSERT SF SVSS 16.05.2018 ***********************
+* Begin Oscar Glez 20170526
+*-----------------------------------------------------------
+* Busca si existen bonificaciones por Jerarquía de productos
+*-----------------------------------------------------------
+  CALL FUNCTION 'ZVSDMF_SEARCH_BONIF_ACUM'
+    EXPORTING
+      in_vkorg     = xvbak-vkorg
+      in_vtweg     = xvbak-vtweg
+      in_kdgrp     = kuagv-kdgrp
+    TABLES
+      in_vbap      = tl_vbap
+      zvsdtt_bonif = tl_zvsdtt_bonif_acum
+      in_vbap_bon  = tl_vbap_bon_acum.
+* End Oscar Glez 20170526
+
+  tl_vbap2[] = tl_vbap[].
+  CALL FUNCTION 'ZVSDMF_SEARCH_BONIF'
+    EXPORTING
+      in_vkorg     = xvbak-vkorg
+      in_vtweg     = xvbak-vtweg
+      in_kdgrp     = kuagv-kdgrp
+      in_kunnr     = xvbak-kunnr
+    TABLES
+      in_vbap      = tl_vbap
+      zvsdtt_bonif = tl_zvsdtt_bonif
+      in_vbap_bon  = tl_vbap_bon.
+
+  APPEND LINES OF tl_zvsdtt_bonif_acum TO tl_zvsdtt_bonif.
+
+
+  IF tl_zvsdtt_bonif[] IS NOT INITIAL.
+
+    CALL FUNCTION 'POPUP_TO_CONFIRM'
+      EXPORTING
+        titlebar              = 'Aplicar Bonificaciones'
+        text_question         = 'Desea revisar las Bonificaciones de los productos ?'
+        text_button_1         = 'Saltar-Grabar'
+        icon_button_1         = 'ICON_SKIP'
+        text_button_2         = 'Bonificaciones'
+        icon_button_2         = 'ICON_CHECKED'
+        display_cancel_button = ' '
+*       popup_type            = 'ICON_MESSAGE_ERROR'
+        iv_quickinfo_button_1 = 'Saltar-Grabar'
+        iv_quickinfo_button_2 = 'Revisar Bonificaciones'
+      IMPORTING
+        answer                = ans.
+    IF ans = 2.
+
+********************* BEGIN OF INSERT SF SVSS 16.05.2018 ***********************
+      IF vl_flag = 1.
+
+        CLEAR: wa_posnr, wa_vbap.
+        LOOP AT xvbap INTO wa_vbap WHERE pstyv = 'TANN'.
+          DELETE ivbap WHERE posnr = wa_vbap-posnr.
+          DELETE xvbep WHERE posnr = wa_vbap-posnr.
+          DELETE ivbep WHERE posnr = wa_vbap-posnr.
+          DELETE ivbep1 WHERE posnr = wa_vbap-posnr.
+          wa_posnr-posnr = wa_vbap-posnr.
+          wa_posnr-posnr_ant = wa_vbap-posnr.
+          wa_posnr-matnr = wa_vbap-matnr. "ADD SF JCLS 02.07.2018
+          wa_posnr-kwmeng = wa_vbap-kwmeng. "ADD SF JCLS 02.07.2018
+          wa_posnr-pstyv = wa_vbap-pstyv. "ADD SF JCLS 02.07.2018
+          wa_posnr-prodh = wa_vbap-prodh. "ADD SF JCLS 03.07.2018
+          APPEND wa_posnr TO tl_posnr.
+          CLEAR: wa_posnr, wa_vbap.
+
+        ENDLOOP.
+        DELETE xvbap WHERE pstyv = 'TANN'.
+      ENDIF.
+********************** END OF INSERT SF SVSS 16.05.2018 ***********************
+      vl_paso = '1'.
+      tl_vbap[] = xvbap[].
+* Incluir en la logica para que se presente la pantalla por posicion
+      DELETE tl_vbap     WHERE kwmeng = 0.
+      DELETE tl_vbap     WHERE pstyv = 'TANN'.
+      DELETE tl_vbap_bon WHERE pstyv = 'TANN'.
+      DELETE tl_vbap_bon WHERE pstyv = 'TAN' OR kwmeng = 0.
+
+      APPEND LINES OF tl_vbap_bon_acum TO tl_vbap. "Agrega los acumulados por Jerarquia
+      SORT tl_vbap ASCENDING BY posnr.
+
+      LOOP AT tl_vbap INTO ls_vbap.
+*       Para el proceso copia datos ya que los borra
+        tl_zvsdtt_bonif_100[] = tl_zvsdtt_bonif[].
+
+        CALL FUNCTION 'ZVSDMF_POPUP_BONIF'
+        EXPORTING
+          in_matnr     = ls_vbap-matnr
+          in_maktx     = ls_vbap-arktx
+        IMPORTING
+          vokcode      = vok_ret
+        TABLES
+          zvsdtt_bonif = tl_zvsdtt_bonif_100.
+
+      IF vok_ret = 'ZOK'.
+*      IF vok_ret <> 'ZOK' AND vl_flag = 1.
+*        READ TABLE tl_vbap_aux INTO wa_vbap WITH KEY matnr = ls_vbap-matnr.
+*        ls_vbap-mrund = 'X'.
+*      ENDIF.
+
+          IF ls_vbap-mrund IS INITIAL.
+            CALL FUNCTION 'ZVSDMF_UPDATE_BONIF'
+*         EXPORTING
+*         IN_MATNR           =
+              TABLES
+                xvbap        = xvbap
+                zvsdtt_bonif = tl_zvsdtt_bonif_100.
+          ELSE.
+*            IF sy-tcode EQ 'VA01'.
+              CLEAR: vbap.
+**–Initialize workareas for VBAP and VBEP
+*
+              PERFORM vbap_unterlegen(sapfv45p).
+              PERFORM vbep_unterlegen(sapfv45e).
+*
+**–Populate material number and quantity
+              READ TABLE tl_zvsdtt_bonif_100 INTO ls_zvsdtt_bonif
+              WITH KEY zcheck = abap_true.
+              IF sy-subrc = 0.
+                vbap-matnr    = ls_zvsdtt_bonif-knrmat.
+                rv45a-kwmeng = ls_zvsdtt_bonif-knrnm." * 1000.
+******************** BEGIN OF INSERT SF SVSS 16.05.2018 ***********************
+              ELSE.
+               IF vl_flag = 1.
+                 READ TABLE tl_posnr INTO wa_posnr INDEX 1.
+                  READ TABLE tl_vbap_aux INTO wa_vbap WITH KEY posnr = wa_posnr-posnr_ant.
+                  IF sy-subrc = 0.
+                    vbap-matnr    = wa_vbap-matnr.
+                    rv45a-kwmeng = wa_vbap-KWMENG.
+                  ENDIF.
+                ENDIF.
+********************** END OF INSERT SF SVSS 16.05.2018 ***********************
+              ENDIF.
+*                rv45a-kwmeng = rv45a-kwmeng / 1000.
+**–Call standard performs to populate material details.
+*
+**–Perform for material validations and details
+*
+                PERFORM vbap-matnr_pruefen(sapfv45p) USING charx sy-subrc.
+**–Perform for item category determination. This will take care of substitution items if any for this material.
+*
+*              perform vbap-pstyv_pruefen(sapfv45p).
+                vbap-pstyv = 'TANN'.
+                vbap-kwmeng = rv45a-kwmeng.
+                vbep-wmeng = rv45a-kwmeng.
+
+*–Perform for filling VBAP with default values from configuration and master tables
+                PERFORM vbap_fuellen(sapfv45p).
+                PERFORM vbap-matnr_null_pruefen(sapfv45p).
+
+                PERFORM vbep-wmeng_setzen(sapfv45e).
+**–Perform to check sales unit
+*
+                PERFORM vbap-vrkme_pruefen(sapfv45p) USING charx
+                        CHANGING sy-subrc sy-msgid sy-msgty sy-msgno
+                                 sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+*–Perform to update VBAP values
+******************** BEGIN OF INSERT SF SVSS 16.05.2018 ***********************
+                IF vl_flag = 1.
+                  READ TABLE xvbap INTO wa_xvbap WITH KEY matnr = ls_vbap-matwa.
+                  IF sy-subrc = 0.
+                    WHILE sy-subrc = 0.
+                      add 10 to wa_xvbap-posnr.
+                      READ TABLE xvbap INTO wa_xvbap WITH KEY posnr = wa_xvbap-posnr.
+                      IF sy-subrc = 0.
+                      CLEAR wa_vbap.
+                      READ TABLE tl_vbap2 INTO wa_vbap WITH KEY matwa = ls_vbap-matwa
+                                              posnr = wa_xvbap-posnr
+                                              matnr = wa_xvbap-matnr.
+                      ENDIF.
+                    ENDWHILE.
+
+                    READ TABLE xvbap ASSIGNING <fs_xvbap> WITH KEY posnr = wa_xvbap-posnr.
+                    IF sy-subrc = 0.
+                      add 10 to <fs_xvbap>-posnr.
+                      READ TABLE ivbap ASSIGNING <fs_ivbap> WITH KEY posnr = wa_xvbap-posnr.
+                      IF sy-subrc = 0.
+                        add 10 to <fs_ivbap>-posnr.
+                      ENDIF.
+
+                      READ TABLE xvbep ASSIGNING <fs_xvbep> WITH KEY posnr = wa_xvbap-posnr.
+                      IF sy-subrc = 0.
+                        add 10 to <fs_xvbep>-posnr.
+                      ENDIF.
+
+                      READ TABLE ivbep ASSIGNING <fs_ivbep> WITH KEY posnr = wa_xvbap-posnr.
+                      IF sy-subrc = 0.
+                        add 10 to <fs_ivbep>-posnr.
+                      ENDIF.
+
+                      READ TABLE ivbep1 ASSIGNING <fs_ivbep1> WITH KEY posnr = wa_xvbap-posnr.
+                      IF sy-subrc = 0.
+                        add 10 to <fs_ivbep1>-posnr.
+                      ENDIF.
+
+                      READ TABLE tl_posnr ASSIGNING <fs_posnr> WITH KEY posnr = <fs_xvbap>-posnr.
+                      IF sy-subrc = 0.
+                        add 10 to <fs_posnr>-posnr.
+                      ENDIF.
+                    ENDIF.
+
+                    vbap-posnr = wa_xvbap-posnr.
+                    vbep-posnr = wa_xvbap-posnr.
+                    DELETE tl_posnr WHERE posnr = wa_xvbap-posnr.
+                    CLEAR wa_xvbap.
+                  ENDIF.
+                ENDIF.
+********************** END OF INSERT SF SVSS 16.05.2018 ***********************
+
+                PERFORM vbap_bearbeiten(sapfv45p).
+*–Perform for filling VBEP with default values. This will take care of schedule lines of the item
+                PERFORM vbep_fuellen(sapfv45e).
+*–Perform to check quantity
+                PERFORM vbep-wmeng_pruefen(sapfv45e) USING charx
+                       CHANGING sy-subrc sy-msgid sy-msgty sy-msgno
+                                sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+*–Perform to update VBEP values
+                  *VBEP-CMENG = VBEP-CMENG. " SF EAHM 2018 06 29, evitar duplicar cantidad pedido en redondeo
+                  PERFORM vbep_bearbeiten(sapfv45e). " modificar repartos y cantidad condifirmada
+
+
+*–Perform to fill conditions and pricing data
+
+                PERFORM vbap_bearbeiten_ende(sapfv45p).
+*              ENDIF. "Read Table
+            ENDIF.
+
+          "BEGIN OF INSERT SF JCLS 03.07.2018 // Si no se cambia bonificación, regresar linea original
+          ELSEIF vok_ret = 'ZCANCEL'.
+
+            LOOP AT tl_posnr INTO wa_posnr WHERE prodh+0(6) = ls_vbap-prodh+0(6).
+
+**–Initialize workareas for VBAP and VBEP
+*
+                PERFORM vbap_unterlegen(sapfv45p).
+                PERFORM vbep_unterlegen(sapfv45e).
+
+                vbap-matnr    = wa_posnr-matnr.
+                rv45a-kwmeng = wa_posnr-kwmeng.
+
+**–Perform for material validations and details
+*
+                PERFORM vbap-matnr_pruefen(sapfv45p) USING charx sy-subrc.
+**–Perform for item category determination. This will take care of substitution items if any for this material.
+
+                vbap-pstyv = 'TANN'.
+                vbap-kwmeng = rv45a-kwmeng.
+                vbep-wmeng = rv45a-kwmeng.
+
+*–Perform for filling VBAP with default values from configuration and master tables
+                PERFORM vbap_fuellen(sapfv45p).
+                PERFORM vbap-matnr_null_pruefen(sapfv45p).
+
+                PERFORM vbep-wmeng_setzen(sapfv45e).
+**–Perform to check sales unit
+*
+                PERFORM vbap-vrkme_pruefen(sapfv45p) USING charx
+                        CHANGING sy-subrc sy-msgid sy-msgty sy-msgno
+                                 sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+
+*–Perform to update VBAP values
+
+                vbap-posnr = wa_posnr-posnr.
+                vbep-posnr = wa_posnr-posnr.
+                PERFORM vbap_bearbeiten(sapfv45p).
+
+*–Perform for filling VBEP with default values. This will take care of schedule lines of the item
+                PERFORM vbep_fuellen(sapfv45e).
+
+*–Perform to check quantity
+                PERFORM vbep-wmeng_pruefen(sapfv45e) USING charx
+                       CHANGING sy-subrc sy-msgid sy-msgty sy-msgno
+                                sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+
+*–Perform to update VBEP values
+                  *VBEP-CMENG = VBEP-CMENG. " SF EAHM 2018 06 29, evitar duplicar cantidad pedido en redondeo
+                  PERFORM vbep_bearbeiten(sapfv45e). " modificar repartos y cantidad condifirmada
+
+
+*–Perform to fill conditions and pricing data
+                PERFORM vbap_bearbeiten_ende(sapfv45p).
+
+            ENDLOOP.
+
+            CLEAR: vok_ret.
+
+            "END OF INSERT SF JCLS 03.07.2018 // Si no se cambia bonificación, regresar linea original
+
+          ENDIF.
+      ENDLOOP.
+
+******************** BEGIN OF INSERT SF SVSS 16.05.2018 ***********************
+      IF vl_flag = 1.
+         CLEAR: vl_pos, vl_line.
+
+        DESCRIBE TABLE tl_posnr LINES vl_line.
+        IF vl_line > 0.
+          LOOP AT tl_posnr INTO wa_posnr.
+            CLEAR vbap.
+*            READ TABLE tl_vbap_aux INTO vbap WITH KEY posnr = wa_posnr-posnr_ant. "DELETE SF JCLS 01.07.2018
+            READ TABLE tl_vbap_aux INTO wa_vbap_aux WITH KEY posnr = wa_posnr-posnr_ant. "ADD SF JCLS 01.07.2018
+
+            IF SY-SUBRC = 0.
+
+              "BEGIN OF DELETE SF JCLS 01.07.2018
+*                vbap-posnr = wa_posnr-posnr.
+*                APPEND vbap to xvbap.
+*
+*                wa_ivbap-posnr = wa_posnr-posnr.
+*                APPEND wa_ivbap to ivbap.
+*
+*                READ TABLE tl_vbep_aux INTO wa_xvbep WITH KEY posnr = wa_posnr-posnr_ant.
+*                wa_xvbep-posnr = wa_posnr-posnr.
+*                APPEND wa_xvbep to xvbep.
+*
+*                READ TABLE tl_ivbep_aux INTO wa_ivbep WITH KEY posnr = wa_posnr-posnr_ant.
+*                wa_ivbep-posnr = wa_posnr-posnr.
+*                APPEND wa_ivbep to ivbep.
+*
+*                READ TABLE tl_ivbep1_aux INTO wa_ivbep1 WITH KEY posnr = wa_posnr-posnr_ant.
+*                 wa_ivbep1-posnr = wa_posnr-posnr.
+*                APPEND wa_ivbep1 to ivbep1.
+
+              "END OF DELETE SF JCLS 01.07.2018
+
+              "BEGIN OF INSERT SF JCLS 01.07.2018 // Si no existen productos con esa jerarquia, volverlo a agregar (Regalos)
+
+              READ TABLE xvbap[] INTO wa_xvbap WITH KEY prodh+0(6) = wa_vbap_aux-prodh+0(6).
+              IF sy-subrc NE 0.
+
+**–Initialize workareas for VBAP and VBEP
+*
+                PERFORM vbap_unterlegen(sapfv45p).
+                PERFORM vbep_unterlegen(sapfv45e).
+
+                vbap-matnr    = wa_vbap_aux-matnr.
+                rv45a-kwmeng = wa_vbap_aux-kwmeng.
+
+**–Perform for material validations and details
+*
+                PERFORM vbap-matnr_pruefen(sapfv45p) USING charx sy-subrc.
+**–Perform for item category determination. This will take care of substitution items if any for this material.
+
+                vbap-pstyv = 'TANN'.
+                vbap-kwmeng = rv45a-kwmeng.
+                vbep-wmeng = rv45a-kwmeng.
+
+*–Perform for filling VBAP with default values from configuration and master tables
+                PERFORM vbap_fuellen(sapfv45p).
+                PERFORM vbap-matnr_null_pruefen(sapfv45p).
+
+                PERFORM vbep-wmeng_setzen(sapfv45e).
+**–Perform to check sales unit
+*
+                PERFORM vbap-vrkme_pruefen(sapfv45p) USING charx
+                        CHANGING sy-subrc sy-msgid sy-msgty sy-msgno
+                                 sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+
+*–Perform to update VBAP values
+
+                vbap-posnr = wa_posnr-posnr.
+                vbep-posnr = wa_posnr-posnr.
+                PERFORM vbap_bearbeiten(sapfv45p).
+
+*–Perform for filling VBEP with default values. This will take care of schedule lines of the item
+                PERFORM vbep_fuellen(sapfv45e).
+
+*–Perform to check quantity
+                PERFORM vbep-wmeng_pruefen(sapfv45e) USING charx
+                       CHANGING sy-subrc sy-msgid sy-msgty sy-msgno
+                                sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+
+*–Perform to update VBEP values
+                  *VBEP-CMENG = VBEP-CMENG. " SF EAHM 2018 06 29, evitar duplicar cantidad pedido en redondeo
+                  PERFORM vbep_bearbeiten(sapfv45e). " modificar repartos y cantidad condifirmada
+
+
+*–Perform to fill conditions and pricing data
+                PERFORM vbap_bearbeiten_ende(sapfv45p).
+
+              ENDIF.
+              "END OF INSERT SF JCLS 01.07.2018 // Si no existen productos con esa jerarquia, volverlo a agregar (Regalos)
+
+            ENDIF.
+          ENDLOOP.
+        ENDIF.
+
+        SORT: xvbap ASCENDING by posnr,
+              ivbap ASCENDING by posnr,
+              xvbep ASCENDING by posnr,
+              ivbep ASCENDING by posnr,
+              ivbep1 ASCENDING by posnr.
+
+        LOOP AT ivbap ASSIGNING <fs_ivbap>.
+          add 1 to vl_pos.
+          <fs_ivbap>-tabix = vl_pos.
+        ENDLOOP.
+
+        CLEAR vl_pos.
+        LOOP AT ivbep ASSIGNING <fs_ivbep>.
+          add 1 to vl_pos.
+          <fs_ivbep>-tabix = vl_pos.
+        ENDLOOP.
+
+        CLEAR vl_pos.
+        LOOP AT ivbep1 ASSIGNING <fs_ivbep1>.
+          add 1 to vl_pos.
+          <fs_ivbep1>-tabix = vl_pos.
+        ENDLOOP.
+  ENDIF.
+
+      LOOP AT xvbap ASSIGNING <fs_xvbap>.
+        IF <fs_xvbap>-PSTYV = 'TANN'.
+          <fs_xvbap>-UEPOS = <fs_xvbap>-POSNR - 10.
+        ENDIF.
+      ENDLOOP.
+********************** END OF INSERT SF SVSS 16.05.2018 ***********************
+      CALL FUNCTION 'POPUP_TO_CONFIRM'
+        EXPORTING
+          titlebar              = 'Aplicar Bonificaciones'
+          text_question         = 'Desea revisar las Bonificaciones en Pedido ?'
+          text_button_1         = 'Saltar-Grabar'
+          icon_button_1         = 'ICON_SKIP'
+          text_button_2         = 'Revisar Pedido'
+          icon_button_2         = 'ICON_CHECKED'
+          display_cancel_button = ' '
+*         popup_type            = 'ICON_MESSAGE_ERROR'
+        IMPORTING
+          answer                = ans.
+      IF ans = 2.
+        PERFORM folge_gleichsetzen(saplv00f).
+        fcode = 'ENT1'.
+        SET SCREEN syst-dynnr.
+        LEAVE SCREEN.
+      ENDIF.
+
+    ENDIF. "Pregunta revisar bonificaciones
+
+  ENDIF. "Not initial
+*else.
+*  vl_paso = ''.
+ENDIF. "sy-tcode
+
+
+**
+**=====================================================================================*
+** Project       : Gonher Evolución - Fase III
+** Requirement N°:
+** Program       : MV45AFZZ
+** Created by     : Desarrollo copiado de Gonher de México S.A. de C.V.
+**                  y adaptado a Filtros de Occidente S.A. de C.V.
+** Creation date : 28/02/2017
+** Description   : Ampliación de funcionalidad de creación y modificación de órdenes de
+**                 Venta
+** Transport     : DEVK900210
+**=====================================================================================*
+*DATA: lv_kalks TYPE kalks,
+*      lv_kalnb TYPE kalnb,
+*      lv_flag(1) TYPE c,
+*      r_vkbur TYPE RANGE OF vkbur.
+*
+*"DATA lt_mara type table of ty_mara.
+*
+** { INSERT SYNCRONIK 02/08/2016
+*  INCLUDE ZSDIN_BONIFICACIONES.
+**  TYPES: BEGIN OF TY_zsdtt_kondns,
+**              KNUMH TYPE zsdtt_kondns-KNUMH,
+**              LIKE_ID  TYPE zsdtt_kondns-line_id,
+**              KNRPOS type zsdtt_kondns-knrpos,
+**              KNRMM TYPE zsdtt_kondns-KNRMM,
+**              KNRNM TYPE zsdtt_kondns-KNRNM,
+**              knrzm type zsdtt_kondns-knrzm,
+**         END OF TY_zsdtt_kondns.
+**
+**  DATA lt_zsdtt_kondns      TYPE TABLE OF ty_zsdtt_kondns.
+**  DATA lt_zsdtt_kondns_cpy  TYPE TABLE OF ty_zsdtt_kondns.
+**  DATA ls_zsdtt_kondns      LIKE LINE OF lt_zsdtt_kondns.
+*
+** } INSERT SYNCRONIK 02/08/2016
+*
+*CALL METHOD zglcl_tvarvc=>get_values
+*      EXPORTING
+*        iv_prog            = 'MV45AFZZ_BONIFICA'
+*        iv_field           = 'VKBUR'
+*      IMPORTING
+*        et_range           = r_vkbur
+*      EXCEPTIONS
+*        variable_not_found = 1
+*        OTHERS             = 2.
+*
+*IF sy-subrc IS INITIAL AND xvbak-vkbur IN r_vkbur .
+*  SELECT kalks INTO lv_kalks FROM KNVV UP TO 1 ROWS
+*                            WHERE KUNNR = XVBAK-KUNNR
+*                              AND VKORG = XVBAK-VKORG.
+*  ENDSELECT.
+*
+*  IF SY-SUBRC = 0.
+*    SELECT KALNB INTO lv_kalnb FROM T683V UP TO 1 ROWS
+*                              WHERE VKORG = XVBAK-VKORG
+*                                AND VTWEG = XVBAK-VTWEG
+*                                AND SPART = XVBAK-SPART
+*                                AND KALVG = TVAK-KALVG
+*                                AND KALKS = lv_kalks
+*                                AND KALNB = 'ZNA001'.
+*    ENDSELECT.
+*  ENDIF.
+*
+*  IF ( ( SY-TCODE = 'VA01' OR SY-TCODE = 'VA02' ) AND
+*         SY-SUBRC = 0 AND
+*         SY-UCOMM NE 'FLI1'
+**   AND NOT VBKD-BSARK IS INITIAL. "CAGG 14.06.2016 Quimica Goncal
+**   { MODIFY SYNCRONIK 08.11.2016
+**    AND ( NOT VBKD-BSARK IS INITIAL OR NOT VBKD-ZLSCH IS INITIAL ). "CAGG 14.06.2016 Quimica Goncal
+*     AND ( NOT VBKD-BSARK IS INITIAL OR NOT VBKD-ZLSCH IS INITIAL ) )
+*      OR VBAK-BSTNK EQ 'SIMULA_BONIFICACION' . "CAGG 14.06.2016 Quimica Goncal
+**   } MODIFY SYNCRONIK 08.11.2016
+*    TABLES: kondn,
+*            zsdtt_kondne,
+*            zsdtt_kondn,
+*            zsdtt_kondns.
+*
+**    TYPES: BEGIN OF ty_detalle_sin_cargo,
+**             knumh    TYPE knumh,
+**             knr_ag   TYPE knuma_ag,
+**             knr_pi   TYPE knuma_pi,
+**             knrmm    TYPE knrmm,
+**             knrnm    TYPE knrnm,
+**             line_id  TYPE mb_line_id,
+**             knrzm    TYPE knrzm,
+**             knrmat   TYPE knrmat,
+**             prodh1   TYPE zprodh1,
+**             prodh2   TYPE zprodh2,
+**             prodh3   TYPE zprodh3,
+**             prodh4   TYPE zprodh4,
+**             prodh5   TYPE zprodh5,
+**             knrme    TYPE knrme,
+**             knrez    TYPE knrez,
+**             marca(1) TYPE c,
+**             umren    TYPE umren,
+**             botext   TYPE botext,
+**           END OF ty_detalle_sin_cargo,
+**           BEGIN OF ty_promo_h,
+**             knumh  TYPE knumh,
+**             knr_ag TYPE knuma_ag,
+**             kwmeng TYPE kwmeng,
+**             vbeln  TYPE vbeln,
+**             posnr  TYPE posnr,
+**             vrkme  TYPE vrkme,
+***             knumh  TYPE knumh,
+**             knr_pi TYPE knuma_pi,
+**             knrmm  TYPE knrmm,
+**             knrnm  TYPE knrnm,
+**             knrme  TYPE knrme,
+**             knrzm  TYPE knrzm,
+**             knrez  TYPE knrez,
+**             meins  TYPE meins,
+**             klmeng TYPE klmeng,
+**             marca(1) TYPE c,
+**             umren  TYPE umren,
+**             botext TYPE botext,
+**             matnr  TYPE matnr,
+**           END OF ty_promo_h,
+**           BEGIN OF ty_escalas,
+***             knumh   TYPE knumh,
+***             line_id TYPE mb_line_id,
+***             knrzm   TYPE knrzm,
+**              KNUMH TYPE zsdtt_kondns-KNUMH,
+**              LINE_ID  TYPE zsdtt_kondns-line_id,
+**              KNRPOS type zsdtt_kondns-knrpos,
+**              KNRMM TYPE zsdtt_kondns-KNRMM,
+**              KNRNM TYPE zsdtt_kondns-KNRNM,
+**              knrzm type zsdtt_kondns-knrzm,
+**              knrez type zsdtt_kondns-knrez,
+**           END OF ty_escalas,
+**           BEGIN OF ty_free_goods,
+**             matnr  TYPE matnr,
+**             knr_ag TYPE knuma_ag,
+**             marca  TYPE c,
+**             knrzm  TYPE knrzm,
+**             knumh  TYPE knumh,
+**             knrez  type knrez, " INSERT SYNCRONIK 02/11/2016
+**           END OF ty_free_goods,
+**           BEGIN OF ty_exclusiones_sin_cargo,
+**             knumh    TYPE knumh,
+**             knrmat   TYPE knrmat,
+**           END OF ty_exclusiones_sin_cargo,
+**           BEGIN OF ty_popup,
+**             knumh      TYPE knumh,
+**             knr_pi     TYPE knuma_pi,
+**             knr_ag     TYPE knuma_ag,
+***             knumh      TYPE knumh,
+**             matnr      TYPE matnr,
+**             maktg      TYPE maktg,
+**             knrzm(16)  TYPE P DECIMALS 3, "knrzm,
+**             lsmeng(16) TYPE c, "p decimals 3, "lsmeng,
+**             umren      TYPE umren,
+**             knrez      TYPE knrez,
+**             botext     TYPE botext,
+**             reg        TYPE i,
+**           END OF ty_popup,
+*** Inicio AGT 08.10.2015
+**           BEGIN OF ty_promo,
+**            pos(6)   TYPE n,
+**            knuma_pi(10) TYPE N, "knuma_pi,
+**            knuma_ag(10) TYPE N, "knuma_ag,
+**           END OF ty_promo,
+**           BEGIN OF ty_kotabnr_invalido,
+**             KOTABNR type kotabnr,
+**           END OF ty_kotabnr_invalido.
+*** Inicio AGT 08.10.2015
+*
+*  DATA: lv_knumv                 TYPE knumv,
+*        lv_knumh                 TYPE knumh,
+*        lv_knuma                 TYPE knuma,
+*        lv_botext                TYPE botext,
+*        lv_knr_ag                TYPE knuma_ag,
+*        it_detalle_sin_cargo     TYPE STANDARD TABLE OF ty_detalle_sin_cargo,
+*        it_detalle_sin_cargop    TYPE STANDARD TABLE OF ty_detalle_sin_cargo,
+*        it_promo_h               TYPE STANDARD TABLE OF ty_promo_h,
+*        it_promo_h_sum           TYPE STANDARD TABLE OF ty_promo_h,
+***--- INI MAMG SYNCRONIK 27.10.2016 GE1K918493
+*        "Tabla con posiciones de Pedido en unidades de promocion
+*        it_promo_h_sum_single    TYPE STANDARD TABLE OF ty_promo_h,
+*        w_promo_single           TYPE ty_promo_h,
+***--- FIN MAMG SYNCRONIK 27.10.2016 GE1K918493
+*        wa_promo_h               TYPE ty_promo_h,
+*        it_grupo_promo           TYPE STANDARD TABLE OF ty_promo_h,
+*        wa_grupo_promo           TYPE ty_promo_h,
+*        it_escalas               TYPE STANDARD TABLE OF ty_escalas,
+*        it_escalas_cpy           TYPE STANDARD TABLE OF ty_escalas, " INSERT SYNCRONIK 02/09/2016
+*        wa_escalas               TYPE ty_escalas,
+*        lv_knrmm                 TYPE knrmm,
+*        lv_knrnm                 TYPE knrnm,
+*
+*        "it_free_goods            TYPE STANDARD TABLE OF ty_free_goods,
+*        wa_free_goods            TYPE ty_free_goods,
+*        lv_prdha                 TYPE prodh_d,
+*        it_exclusiones_sin_cargo TYPE STANDARD TABLE OF ty_exclusiones_sin_cargo,
+*        wa_exclusiones_sin_cargo TYPE ty_exclusiones_sin_cargo,
+*        it_popup                 TYPE STANDARD TABLE OF ty_popup,
+*        wa_popup                 TYPE ty_popup,
+*        lv_choose                TYPE i,
+*        it_kondn                 TYPE STANDARD TABLE OF kondn,
+*        wa_kondn                 TYPE kondn,
+*        lv_fecha                 TYPE sy-datum,
+*        e_exit(1)                TYPE c ,
+*        fieldcat                 TYPE slis_t_fieldcat_alv WITH HEADER LINE,
+*        lv_desde                 TYPE i,
+*        lv_hasta                 TYPE i,
+*        lv_suma                  TYPE i,
+*        lv_knrzm                 TYPE i,
+*        wa_order_header_inx      LIKE BAPISDH1X,
+*        wa_order_header_in       LIKE BAPISDH1,
+*        it_order_item_in         TYPE STANDARD TABLE OF BAPISDITM,
+*        wa_order_item_in         TYPE BAPISDITM,
+*        it_return                TYPE STANDARD TABLE OF BAPIRET2,
+*        wa_return                TYPE BAPIRET2,
+*        lv_itm_number            TYPE POSNR_VA VALUE '009000',
+*        it_order_item_inx        TYPE STANDARD TABLE OF BAPISDITMX,
+*        wa_order_item_inx        TYPE BAPISDITMX,
+*        lv_mtpos                 TYPE MTPOS,
+*        it_schedule_lines        TYPE STANDARD TABLE OF BAPISCHDL,
+*        wa_schedule_lines        TYPE BAPISCHDL,
+*        it_schedule_linesx       TYPE STANDARD TABLE OF BAPISCHDLX,
+*        wa_schedule_linesx       TYPE BAPISCHDLX,
+*        it_extension             TYPE STANDARD TABLE OF BAPIPAREX,
+*        wa_extension             TYPE BAPIPAREX,
+*        it_order_text            TYPE STANDARD TABLE OF BAPISDTEXT,
+*        wa_order_text            TYPE BAPISDTEXT,
+*        it_tkomp                 TYPE STANDARD TABLE OF komp WITH HEADER LINE,
+*        lv_kwmeng                TYPE f,
+*        lv_kwmengp               TYPE p DECIMALS 2,
+*        lv_kwmengc(10)           TYPE c,
+*        lv_sw                    TYPE i VALUE 0,
+*        lv_matnr                 TYPE matnr,
+*        lv_vrkme                 TYPE vrkme,
+*        lv_char(1)               TYPE c,
+*        lv_counter               TYPE i,
+*        lv_strlen                TYPE i,
+*        lv_meins                 TYPE meins,
+*        lv_meinh                 TYPE meinh,
+*        lv_umrez                 TYPE umrez,
+*        lv_umren                 TYPE umren,
+*        lv_lines                 TYPE i,
+** Inicio AGT 08.10.2015
+*        it_promo TYPE STANDARD TABLE OF ty_promo,
+*        wa_promo TYPE ty_promo,
+*        lv_numeros               TYPE string VALUE 0,
+*        it_kotabnr_invalido      TYPE STANDARD TABLE OF ty_kotabnr_invalido,
+*        wa_kotabnr_invalido      TYPE ty_kotabnr_invalido.
+** Inicio AGT 08.10.2015
+*
+*DATA lv_knrmm_tmp type knrmm.
+*DATA lv_knrzm_no_dec TYPE i.
+*
+*  CONSTANTS c_titulo TYPE SY-TITLE VALUE 'Promociones'.
+*
+*  TYPE-POOLS: SLIS.
+*
+*  CONSTANTS: c_v(2)      TYPE c VALUE 'V ',
+**             c_zbn001(6) TYPE c VALUE 'ZZBN01', "Commented by ogm 20170316
+*             c_zbn001(6) TYPE c VALUE 'ZNA001', "Changed by ogm 20170316
+*             c_a(1)      TYPE c VALUE 'A',
+*             c_c(1)      TYPE c VALUE 'C',
+*             c_boart(4)  TYPE c VALUE 'Z007',
+*             c_u         TYPE c VALUE 'U',
+*             c_free(4)   TYPE c VALUE 'FREE',
+*             c_i         TYPE c VALUE 'I',
+*             c_d         TYPE c VALUE 'D',
+*             c_x         TYPE c VALUE 'X',
+*             c_0001(4)   TYPE c VALUE '0001',
+*             c_vbap(9)   TYPE c VALUE 'BAPE_VBAP',
+*             c_numeros   TYPE string VALUE '0123456789'.
+*
+*  FIELD-SYMBOLS: <g_detalle_sin_cargo> TYPE ty_detalle_sin_cargo,
+*                 <g_free_goods>        TYPE ty_free_goods,
+*                 <g_popup>             TYPE ty_popup.
+*
+* .
+*
+***--- INI MAMG SYNCRONIK 13.11.2016 GE1K918493
+* "Excluir posiciones de Promoción.
+* DATA lra_pstyv type range of vbap-pstyv.
+* "Obtener TVARV para identificar Tipos de Posición de Bonificación
+*        call method zglcl_tvarvc=>get_values
+*          exporting
+*            iv_prog            = 'ZSDEH_BONIFICA_POST'
+*            iv_field           = 'ATP2_PSTYV'
+*          importing
+*            et_range           = lra_pstyv
+*          exceptions
+*            variable_not_found = 1
+*            others             = 2.
+***--- FIN MAMG SYNCRONIK 13.11.2016 GE1K918493
+*
+**>INICIO CAGG 13.06.2016 Ajustes Quimica Goncal
+** LOOP AT XVBAP WHERE NOT ( PSTYV = 'ZTNN' OR PSTYV = 'ZTQ2' OR PSTYV = 'ZTQ3' )
+*  LOOP AT XVBAP WHERE NOT ( PSTYV = 'ZTNN' OR PSTYV = 'ZBNN' OR PSTYV = 'ZTQ2' OR PSTYV = 'ZTQ3'
+***--- INI MAMG SYNCRONIK 13.11.2016 GE1K918493
+*     "Posiciones Bonif.
+**     OR ( PSTYV IN lra_pstyv )
+***--- FIN MAMG SYNCRONIK 13.11.2016 GE1K918493
+*     )
+**<FIN CAGG 13.06.2016 Ajustes Quimica Goncal
+*                      AND UEPOS EQ '000000' AND UPDKZ ne 'D'. " AND ABGRU = '  '.
+*
+**    LOOP AT XKOMV INTO XKOMV WHERE ( kschl = 'ZP05' OR kschl = 'ZP08' OR  "commented by ogm 20170316
+**                                     kschl = 'ZP09' OR kschl = 'ZP10' )
+**    LOOP AT XKOMV INTO XKOMV WHERE ( kschl = 'ZPR0' or kschl = 'ZPRM')  "changed by ogm 20170316
+**                               AND kinak EQ space
+**                               AND kposn EQ xvbap-posnr.
+**    ENDLOOP.
+**    IF SY-SUBRC = 0.
+**      CONTINUE.
+**    ENDIF.
+*    REFRESH it_kondn.
+*
+*    it_tkomp-kposn = XVBAP-posnr.
+*    it_tkomp-matnr = XVBAP-matnr.
+*    it_tkomp-werks = XVBAP-werks.
+*    it_tkomp-bwkey = XVBAP-werks.
+*    it_tkomp-prodh = XVBAP-prodh.
+*    it_tkomp-meins = XVBAP-meins.
+*    it_tkomp-vrkme = XVBAP-vrkme.
+*    it_tkomp-pstyv = XVBAP-pstyv.
+*    it_tkomp-lprio = XVBAP-lprio.
+*    it_tkomp-prodh1 = XVBAP-PRODH(3).
+*    it_tkomp-PRODH2 = XVBAP-PRODH+3(3).
+*    it_tkomp-PRODH3 = XVBAP-PRODH+6(4).
+*    it_tkomp-PRODH4 = XVBAP-PRODH+10(4).
+*    it_tkomp-PRODH5 = XVBAP-PRODH+14(4).
+** { MODIFY SYNCRONIK 08/02/2016
+*    it_tkomp-mglme = '99999999'.
+*    it_tkomp-mgame = '99999999'.
+*    IT_TKOMP-USE_MULTIVAL_ATTR = ABAP_TRUE.
+**    it_tkomp-mglme = XVBAP-KWMENG.
+**    it_tkomp-mgame = XVBAP-KWMENG.
+**  IT_TKOMP-USE_MULTIVAL_ATTR = ABAP_TRUE.
+*
+** { MODIFY SYNCRONIK 08/02/2016
+*
+*    READ TABLE xkomv WITH KEY kschl = 'ZPR0'  "changed by Oscar Glez 20170228
+*                              kposn = xvbap-posnr.
+*    IF SY-SUBRC ne 0.
+*      READ TABLE xkomv WITH KEY kschl = 'ZPRM'  "changed by Oscar Glez 20170316
+*                                kposn = xvbap-posnr.
+*    ENDIF.
+*
+*    IF SY-SUBRC ne 0.
+*      CLEAR tkomk-pltyp.
+*    ELSE.
+**      SELECT pltyp INTO tkomk-pltyp FROM a679 UP TO 1 ROWS     "commented by Oscar Glez 20170316
+**                                   WHERE knumh = xkomv-knumh.
+*
+*      SELECT VKORG INTO tkomk-VKORG FROM a904 UP TO 1 ROWS     "changed by Oscar Glez 20170316
+*                                   WHERE knumh = xkomv-knumh.
+*      ENDSELECT.
+*    ENDIF.
+*
+**    DO."Commented by Oscar Glez 20170321
+*
+*      CALL FUNCTION 'NATRAB_SELECTION'
+*        EXPORTING
+*          APPLICATION                         = c_v
+*          DATE                                = sy-datum
+**         DIALOG                              = 'X'
+*          HEADER_COMMUNICATION                = tkomk
+*          ITEM_COMMUNICATION                  = it_tkomp
+*          SCHEME                              = c_zbn001
+**         PROTOCOL                            = ' '
+**         ONLY_ONE_RECORD                     = 'X'
+**       IMPORTING
+**         PROTOCOL_HEADER                     =
+*       TABLES
+*         KONDN_DATA                          = it_kondn
+**        KONDNS_DATA                         =
+**        KONDN_MAT_DATA                      =
+**       EXCEPTIONS
+**         MINIMUM_QUANTITY_NOT_REACHED        = 1
+**         REBATE_IN_KIND_NOT_FOUND            = 2
+**         MATERIAL_UNIT_NOT_FOUND             = 3
+**         CALCULATION_TYPE_RESULTS_ZERO       = 4
+**         ADD_MATERIAL_UNIT_NOT_FOUND         = 5
+**         OTHERS                              = 6
+*.
+*      IF it_kondn[] IS INITIAL.
+*        CONTINUE.
+*      ENDIF.
+*
+*      READ TABLE it_kondn INTO wa_kondn INDEX 1.
+*
+*      REFRESH it_detalle_sin_cargo.
+*      SELECT knumh knr_ag knr_pi knrmm knrnm line_id knrzm knrmat prodh1 prodh2 prodh3 prodh4 prodh5
+*             knrme knrez
+*                                                INTO TABLE it_detalle_sin_cargo
+*                                                      FROM zsdtt_kondn FOR ALL ENTRIES IN it_kondn
+*                                                     WHERE knumh EQ it_kondn-knumh.
+*
+*      IF it_detalle_sin_cargo[] IS INITIAL.
+*        IF wa_kondn-kotabnr = '850'.
+*          EXIT.
+*        ENDIF.
+********************************
+**        READ TABLE it_kondn INTO wa_kondn INDEX 1.
+*        MOVE wa_kondn-kotabnr TO wa_kotabnr_invalido.
+*        APPEND wa_kotabnr_invalido TO it_kotabnr_invalido .
+*        EXPORT it_kotabnr_invalido TO MEMORY ID 'KOTABNR_INVALIDO'.
+********************************
+*        CONTINUE.
+*      ENDIF.
+*
+*      CONCATENATE vbkd-prsdt+0(4) vbkd-prsdt+4(2) vbkd-prsdt+6(2) INTO lv_fecha.
+*      LOOP AT it_detalle_sin_cargo ASSIGNING <g_detalle_sin_cargo>.
+*        SELECT SINGLE knuma botext INTO (lv_knuma, lv_botext) FROM kona
+*                                                  WHERE knuma  = <g_detalle_sin_cargo>-knr_ag
+*                                                    AND uknuma = <g_detalle_sin_cargo>-knr_pi
+*                                                    AND vkorg = vbak-vkorg
+*                                                    AND boart = c_boart
+*                                                    AND abtyp = c_c
+*                                                    AND datab <= lv_fecha
+*                                                    AND datbi >= lv_fecha
+*                                                    AND kfrst = space.
+*        IF SY-SUBRC ne 0.
+**          <g_detalle_sin_cargo>-marca = 'X'. "20170321 Commented by Oscar Glez Analizar
+*        ELSE.
+*          <g_detalle_sin_cargo>-botext = lv_botext.
+*        ENDIF.
+*      ENDLOOP.
+*      DELETE it_detalle_sin_cargo WHERE marca = 'X'.
+*      IF it_detalle_sin_cargo[] IS INITIAL.
+*        IF wa_kondn-kotabnr = '850'.
+*          EXIT.
+*        ENDIF.
+********************************
+**        READ TABLE it_kondn INTO wa_kondn INDEX 1.
+*        MOVE wa_kondn-kotabnr TO wa_kotabnr_invalido.
+*        APPEND wa_kotabnr_invalido TO it_kotabnr_invalido .
+*        EXPORT it_kotabnr_invalido TO MEMORY ID 'KOTABNR_INVALIDO'.
+********************************
+*        CONTINUE.
+*      ENDIF.
+*
+**      IF NOT it_detalle_sin_cargo[] IS INITIAL. "Commented by Oscar Glez 20170321
+**        EXIT.   "Commented by Oscar Glez 20170321
+**      ENDIF.   "Commented by Oscar Glez 20170321
+**    ENDDO.  "Commented by Oscar Glez 20170321
+*
+*    FREE MEMORY ID 'KOTABNR_INVALIDO'.
+****************
+******************************
+*    READ TABLE it_kondn INTO wa_kondn INDEX 1.
+*    SELECT SINGLE knumh INTO lv_knumh FROM zsdtt_kondne
+*                                     WHERE knumh  EQ wa_kondn-knumh
+*                                       AND knrmat EQ xvbap-matnr
+*                                       AND ( zexclusion EQ c_a OR zexclusion EQ c_c ).
+*    IF SY-SUBRC = 0.
+*      CONTINUE.
+*    ENDIF.
+******************************
+*    LOOP AT it_detalle_sin_cargo ASSIGNING <g_detalle_sin_cargo>.
+*      MOVE: vbak-vbeln                   TO wa_promo_h-vbeln,
+*            xvbap-posnr                  TO wa_promo_h-posnr,
+*            xvbap-kwmeng                 TO wa_promo_h-kwmeng,
+*            xvbap-vrkme                  TO wa_promo_h-vrkme,
+*            wa_kondn-knumh               TO wa_promo_h-knumh,
+*            <g_detalle_sin_cargo>-knr_pi TO wa_promo_h-knr_pi,
+*            <g_detalle_sin_cargo>-knr_ag TO wa_promo_h-knr_ag,
+*            wa_kondn-knrmm               TO wa_promo_h-knrmm,
+*            wa_kondn-knrnm               TO wa_promo_h-knrnm,
+*            wa_kondn-knrme               TO wa_promo_h-knrme,
+**            wa_kondn-knrzm               TO wa_promo_h-knrzm,
+*            <g_detalle_sin_cargo>-knrzm  TO wa_promo_h-knrzm,
+*            wa_kondn-knrez               TO wa_promo_h-knrez.
+*
+*             wa_promo_h-klmeng = XVBAP-KWMENG / XVBAP-UMVKN.
+**            xvbap-klmeng                 TO wa_promo_h-klmeng,
+*
+*      MOVE: xvbap-meins                  TO wa_promo_h-meins,
+*            xvbap-matnr                  TO wa_promo_h-matnr,
+*            <g_detalle_sin_cargo>-botext TO wa_promo_h-botext.
+*      APPEND wa_promo_h TO it_promo_h.
+*      CLEAR  wa_promo_h.
+*    ENDLOOP.
+*    APPEND LINES OF it_detalle_sin_cargo TO it_detalle_sin_cargop.
+*  ENDLOOP.
+*
+*  SORT: it_promo_h            BY knumh, "knr_ag,
+*        it_detalle_sin_cargop BY knumh. "knr_ag.
+*  DELETE ADJACENT DUPLICATES FROM it_promo_h.
+*
+** { SYNCRONIK HRESTREPO 02.27.2016
+** ---------------------------------------------------------------------------------------
+*  DATA lv_suma_promo TYPE KNRNM.
+*  DATA wa_promo_h_sum LIKE LINE OF it_promo_h_sum.
+*  DATA wa_promo_h_temp lIKE LINE OF it_promo_h.
+*  PERFORM f_get_suma_promo_by_knrme USING    it_promo_h
+*                                    CHANGING it_promo_h_sum
+***--- INI MAMG SYNCRONIK 27.10.2016 GE1K918493
+*"Tabla con posiciones de pedidos en unidades de promoción
+*                                              it_promo_h_sum_single
+***--- FIN MAMG SYNCRONIK 27.10.2016 GE1K918493
+*                                                              .
+*
+*
+*
+*  LOOP AT it_promo_h_sum INTO wa_promo_h_sum.
+*
+**     Valida que la suma de las posiciones por knumh sean menores a knrmm y por lo tanto hay que volver a procesar
+*      IF wa_promo_h_sum-kwmeng  < wa_promo_h_sum-knrmm.
+**       Procesar de nuevo las partidas de los knumh
+*        LOOP AT it_promo_h INTO wa_promo_h WHERE knumh eq wa_promo_h_sum-knumh.
+*          PERFORM f_get_free_goods USING abap_false
+*                                         wa_promo_h
+*                                         wa_kondn
+*                                CHANGING it_promo_h
+*                                         it_detalle_sin_cargop.
+*
+*        DELETE it_promo_h            WHERE KNUMH eq wa_promo_h_sum-knumh and POSNR eq WA_PROMO_H-POSNR.
+*        DELETE it_detalle_sin_Cargop WHERE knumh eq wa_promo_h_sum-knumh.
+*        DELETE it_detalle_sin_cargo  WHERE knumh Eq wa_promo_h_sum-knumh.
+*
+*       ENDLOOP.
+*
+*      ENDIF.
+*
+*  ENDLOOP.
+**
+**
+*
+** } SYNCRONIK HRESTREPO 02.27.2016
+*
+*  LOOP AT it_promo_h INTO wa_promo_h.
+*    lv_meins = wa_promo_h-meins.
+*    lv_matnr = wa_promo_h-matnr.
+**   { INSERT SYNCRONIK 02/13/2016
+*    lv_vrkme = wa_promo_h-vrkme.
+**   } INSERT SYNCRONIK 02/13/2016
+*******************************
+*    READ TABLE it_detalle_sin_cargop ASSIGNING <g_detalle_sin_cargo>
+*                                      WITH KEY knumh  = wa_promo_h-knumh.
+****                                               knrmat = wa_promo_h-matnr.
+*    IF <g_detalle_sin_cargo> IS ASSIGNED.
+** { SYNCRONIK 02/06/2016
+**    IF wa_promo_h-meins NE <g_detalle_sin_cargo>-knrme.
+*    IF wa_promo_h-meins NE <g_detalle_sin_cargo>-knrez.
+** } SYNCRONIK 02/06/2016
+*      SELECT SINGLE matnr meinh umrez umren INTO (lv_matnr, lv_meinh, lv_umrez, lv_umren)
+*                   FROM MARM WHERE matnr = lv_matnr
+*                               AND meinh = <g_detalle_sin_cargo>-knrme.
+*      IF SY-SUBRC = 0.
+***-- MAMG INI 08.12.2015 Ajuste Variables con decimales
+**       { DELETE SYNCRONIK 02/13/2016
+**        PERFORM F_decimal_conv IN PROGRAM ZSD_OPE_DECIMAL USING lv_umrez lv_umren wa_promo_h-kwmeng wa_promo_h-klmeng.
+**       } DELETE SYNCRONIK 02/13/2016
+*        "Comentarizar
+**        wa_promo_h-kwmeng = wa_promo_h-klmeng * ( lv_umren / lv_umrez ).
+***-- MAMG FIN 08.12.2015 Ajuste Variables con decimales
+*        MODIFY it_promo_h FROM wa_promo_h TRANSPORTING kwmeng.
+*      ENDIF.
+*    ENDIF.
+*******************************
+**       { INSERT SYNCRONIK 02/13/2016
+*           perform f_convert_value USING wa_promo_h-matnr
+*                                         wa_promo_h-vrkme
+*                                         wa_promo_h-knrme
+*                                         wa_promo_h-kwmeng
+*                                         wa_promo_h-kwmeng.
+**       } INSERT SYNCRONIK 02/13/2016
+*
+**> INICIO SYNCRONIK CAGG 14022016
+*        MODIFY it_promo_h FROM wa_promo_h TRANSPORTING kwmeng.
+**< FIN SYNCRONIK CAGG 14022016
+*
+*     AT END OF knumh.
+*      SUM.
+*      wa_promo_h-meins = lv_meins.
+****      READ TABLE it_detalle_sin_cargop ASSIGNING <g_detalle_sin_cargo>
+*****                                        WITH KEY knr_ag = wa_promo_h-knr_ag
+****                                       WITH KEY knumh = wa_promo_h-knumh
+****                                   BINARY SEARCH.
+** {   INSERT SYNCRONIK 02/13/2016
+*      SORT it_detalle_sin_cargop BY KNUMH LINE_ID.
+*      DELETE ADJACENT DUPLICATES FROM it_detalle_sin_cargop comparing KNUMH LINE_ID.
+** }   INSERT SYNCRONIK 02/13/2016
+*
+*      LOOP AT it_detalle_sin_cargop ASSIGNING <g_detalle_sin_cargo>
+*                                       WHERE knumh = wa_promo_h-knumh.
+*****        IF wa_promo_h-meins NE <g_detalle_sin_cargo>-knrme.
+*****          SELECT SINGLE matnr meinh umrez umren INTO (lv_matnr, lv_meinh, lv_umrez, lv_umren)
+*****                   FROM MARM WHERE matnr = lv_matnr
+*****                               AND meinh = <g_detalle_sin_cargo>-knrme.
+*****          IF SY-SUBRC = 0. " AND lv_meinh = <g_detalle_sin_cargo>-knrme.
+*****            wa_promo_h-kwmeng = wa_promo_h-klmeng * lv_umren.
+*****          ENDIF.
+*****        ENDIF.
+** { INSERT SYNCRONIK 02/11/2016
+*
+*
+**        IF wa_promo_h-kwmeng >= lv_knrmm_tmp AND
+* IF wa_promo_h-kwmeng >=  <g_detalle_sin_cargo>-knrmm.
+** } INSERT SYNCRONIK 02/11/2016
+*
+*          IF  <g_detalle_sin_cargo>-knrmm ne 0.
+** { INSERT SYNCRONIK 02/11/2016
+**            lv_kwmeng =  TRUNC( wa_promo_h-kwmeng / <g_detalle_sin_cargo>-knrnm ).
+*             lv_kwmeng =  TRUNC( wa_promo_h-kwmeng / <g_detalle_sin_cargo>-knrnm ).
+** } INSERT SYNCRONIK 02/11/2016
+**            lv_kwmeng = ( wa_promo_h-kwmeng / <g_detalle_sin_cargo>-knrnm ).
+*          ELSE.
+*            lv_kwmeng =  0.
+*          ENDIF.
+*          MOVE lv_kwmeng TO lv_kwmengp.
+*          lv_kwmengp = lv_kwmengp * 100.
+*          <g_detalle_sin_cargo>-knrzm  = ( lv_kwmeng * <g_detalle_sin_cargo>-knrzm ).
+*          <g_detalle_sin_cargo>-marca  = 'X'.
+*        ELSE.
+*          DELETE it_detalle_sin_cargop WHERE knumh = wa_promo_h-knumh. "knr_ag = wa_promo_h-knr_ag.
+*          DELETE it_promo_h            WHERE knumh = wa_promo_h-knumh. "knr_ag = wa_promo_h-knr_ag.
+*        ENDIF.
+*      ENDLOOP.
+*    ENDAT.
+*    ENDIF.
+*  ENDLOOP.
+****  DELETE it_detalle_sin_cargop WHERE marca = 'X'.
+*
+*  IF NOT it_detalle_sin_cargop[] IS INITIAL.
+*    SELECT KNUMH
+*           LINE_ID
+*               KNRPOS
+*               KNRMM
+*               KNRNM
+*               KNRZM
+*               KNREZ
+*               KNRME
+*       INTO TABLE it_escalas FROM zsdtt_kondns
+*                     FOR ALL ENTRIES IN it_detalle_sin_cargop
+*                                 WHERE knumh   = it_detalle_sin_cargop-knumh
+*                                   AND line_id = it_detalle_sin_cargop-line_id.
+*    IF SY-SUBRC = 0.
+*      SORT: it_escalas BY knumh,
+*            it_detalle_sin_cargop BY knumh. "knr_ag.
+*
+*      SORT it_escalas BY KNUMH.
+*
+*"         LOOP AT  it_detalle_sin_cargop assigning  <g_detalle_sin_cargo> where  knumh = wa_promo_h-knumh.
+**         Convierte la unidad de la escala, con la unidad de medida de it_detalle_sin_cargop ( KNRME ).
+*          it_escalas_cpy[] = it_escalas[].
+*          PERFORM f_homologa_unit_m USING <g_detalle_sin_cargo>-line_id
+*                                          wa_promo_h-vrkme
+*                                          wa_promo_h-matnr
+*                                          wa_promo_h-klmeng
+*                                          it_promo_h
+*                                 CHANGING it_escalas_cpy.
+*           it_escalas[] = it_escalas_cpy[].
+*
+*        LOOP AT it_promo_h INTO wa_promo_h.
+*         LOOP AT  it_detalle_sin_cargop assigning  <g_detalle_sin_cargo> where  knumh = wa_promo_h-knumh.
+*             it_escalas_cpy[] = it_escalas[].
+*             DELETE it_escalas_cpy   where knumh   NE wa_promo_h-knumh.
+*             DELETE it_escalas_cpy   where line_id NE  <g_detalle_sin_cargo>-line_id.
+*             SORT  it_escalas_cpy BY KNRMM DESCENDING.
+*             READ TABLE  it_escalas_cpy INTO wa_escalas INDEX 1.
+*             IF SY-SUBRC = 0.
+*               lv_knrmm = wa_escalas-knrmm.
+*               lv_knrnm = wa_escalas-knrnm.
+*
+*               LV_KNRZM =  TRUNC( WA_ESCALAS-kwmeng_CONV * 100 / lv_knrnm ).
+*               lv_kwmeng =  TRUNC( WA_ESCALAS-kwmeng_CONV / lv_knrnm ).
+*               MOVE lv_kwmeng TO lv_kwmengp.
+*               lv_kwmengp = lv_kwmengp * 100.
+*               <g_detalle_sin_cargo>-knrzm = ( lv_kwmeng * wa_escalas-knrzm ).
+*               <g_detalle_sin_cargo>-knrez = wa_escalas-knrez.
+*
+*             ENDIF.
+*        ENDLOOP.
+*       ENDLOOP.
+*
+*    ENDIF.
+*  ENDIF.
+*  SORT it_detalle_sin_cargop.
+*  DELETE it_detalle_sin_cargop WHERE marca = ' '.
+*  REFRESH it_free_goods. " MODIFY SYNCRONIK 02.23.2016
+*  LOOP AT it_detalle_sin_cargop ASSIGNING <g_detalle_sin_cargo>.
+*    CONCATENATE <g_detalle_sin_cargo>-prodh1
+*                <g_detalle_sin_cargo>-prodh2
+*                <g_detalle_sin_cargo>-prodh3
+*                <g_detalle_sin_cargo>-prodh4
+*                <g_detalle_sin_cargo>-prodh5 into lv_prdha.
+*    CONDENSE lv_prdha NO-GAPS.
+*    IF NOT lv_prdha IS INITIAL.
+*      CONCATENATE lv_prdha '%' INTO lv_prdha.
+*      DESCRIBE TABLE it_free_goods LINES lv_desde.
+*      IF lv_desde = 0.
+*        lv_desde = 1.
+*      ELSE.
+*        lv_desde = lv_desde + 1.
+*      ENDIF.
+*      IF lv_prdha IS NOT INITIAL. "CAGG 25092015
+*        SELECT matnr APPENDING TABLE it_free_goods FROM mara
+*                                                  WHERE prdha LIKE lv_prdha.
+**     { INSERT SYNCRONIK 02/11/2016
+*          wa_free_goods-knrez = <g_detalle_sin_cargo>-knrez.
+*          MODIFY it_free_goods FROM wa_free_goods TRANSPORTING KNREZ WHERE KNREZ IS INITIAL.
+**     } INSERT SYNCRONIK 02/11/2016
+*      ENDIF. "CAGG 25092015
+*      IF SY-SUBRC = 0.
+*        DESCRIBE TABLE it_free_goods LINES lv_hasta.
+*        LOOP AT it_free_goods INTO wa_free_goods FROM lv_desde TO lv_hasta.
+*          wa_free_goods-knr_ag = <g_detalle_sin_cargo>-knr_ag.
+*          wa_free_goods-knrzm  = <g_detalle_sin_cargo>-knrzm.
+*
+*          wa_free_goods-knumh  = <g_detalle_sin_cargo>-knumh.
+*
+*          MODIFY it_free_goods FROM wa_free_goods TRANSPORTING knr_ag knrzm knumh.
+*        ENDLOOP.
+*      ELSE.
+*        lv_desde = lv_desde - 1.
+*      ENDIF.
+*    ENDIF.
+*    wa_free_goods-matnr  = <g_detalle_sin_cargo>-knrmat.
+*    wa_free_goods-knr_ag = <g_detalle_sin_cargo>-knr_ag.
+*    wa_free_goods-knrzm  = <g_detalle_sin_cargo>-knrzm.
+*    wa_free_goods-knrez  = <g_detalle_sin_cargo>-knrez.
+*    wa_free_goods-knumh  = <g_detalle_sin_cargo>-knumh.
+*
+*    APPEND wa_free_goods TO it_free_goods.
+*  ENDLOOP.
+*  IF NOT it_detalle_sin_cargo[] IS INITIAL.
+*  SELECT knumh knrmat INTO TABLE it_exclusiones_sin_cargo FROM zsdtt_kondne
+*******************
+**                              FOR ALL ENTRIES IN it_detalle_sin_cargo
+**                              WHERE        knumh = it_detalle_sin_cargo-knumh
+**********************
+*                              FOR ALL ENTRIES IN it_detalle_sin_cargop
+*                              WHERE        knumh = it_detalle_sin_cargop-knumh
+*                                AND ( zexclusion = 'B' OR zexclusion = 'C' ).
+*  IF SY-SUBRC = 0.
+*    SORT it_exclusiones_sin_cargo BY knrmat.
+*    LOOP AT it_free_goods ASSIGNING <g_free_goods>.
+*      READ TABLE it_exclusiones_sin_cargo INTO wa_exclusiones_sin_cargo
+*                                      WITH KEY knrmat = <g_free_goods>-matnr
+*                                      BINARY SEARCH TRANSPORTING NO FIELDS.
+*      IF SY-SUBRC eq 0.
+*        <g_free_goods>-marca = 'X'.
+*      ENDIF.
+*    ENDLOOP.
+*    DELETE it_free_goods WHERE marca = 'X'.
+*  ENDIF.
+*  SORT it_free_goods BY matnr.
+*  ENDIF.
+**  LOOP AT it_detalle_sin_cargop ASSIGNING <g_detalle_sin_cargo>.
+**    wa_popup-knumh  = <g_detalle_sin_cargo>-knumh.
+**    wa_popup-knr_ag = <g_detalle_sin_cargo>-knr_ag.
+**    wa_popup-knr_pi = <g_detalle_sin_cargo>-knr_pi.
+**    READ TABLE it_free_goods ASSIGNING <g_free_goods>
+**                                      WITH KEY matnr = <g_detalle_sin_cargo>-knrmat
+**                                      BINARY SEARCH.
+**    IF SY-SUBRC = 0.
+**      wa_popup-matnr = <g_free_goods>-matnr.
+**      SELECT SINGLE maktg INTO wa_popup-maktg FROM makt
+**                                           WHERE matnr = <g_free_goods>-matnr
+**                                             AND spras = 'ES'.
+**    ELSE.
+**      wa_popup-matnr = 0.
+**    ENDIF.
+**
+**    APPEND wa_popup TO it_popup.
+**  ENDLOOP.
+*  SORT it_detalle_sin_cargop BY knumh. "knr_ag.
+*  LOOP AT it_free_goods ASSIGNING <g_free_goods>.
+*    MOVE-CORRESPONDING <g_free_goods> TO wa_popup.
+*    SELECT SINGLE maktg INTO wa_popup-maktg FROM makt
+*                                           WHERE matnr = <g_free_goods>-matnr
+*                                             AND spras = 'S'.
+*    READ TABLE it_detalle_sin_cargop ASSIGNING <g_detalle_sin_cargo>
+*                                      WITH KEY knumh = <g_free_goods>-knumh "knr_ag = <g_free_goods>-knr_ag
+*                                      BINARY SEARCH.
+*    IF SY-SUBRC = 0.
+*      SELECT SINGLE matnr INTO lv_matnr FROM mvke
+*                                           WHERE matnr = <g_free_goods>-matnr
+*                                             AND vkorg = vbak-vkorg
+*"                                             AND vtweg = '01'.  "Commented by Oscar Glez 20170321 Analizar
+*                                             AND vtweg = '10'.   "Changed   by Oscar Glez 20170321 Analizar
+*      IF SY-SUBRC = 0.
+*        SELECT SINGLE matnr INTO lv_matnr FROM marc
+*                                           WHERE matnr = <g_free_goods>-matnr
+*                                             AND werks = xvbap-werks.
+*        IF SY-SUBRC = 0.
+*
+*
+** { MODIFY SYNCRONIK CAGG 03/14/2016
+*           perform f_set_matnr_range.
+*           perform f_get_mara_data.
+*           perform f_get_vrkme_from_matnr USING  <g_free_goods>-matnr CHANGING lv_vrkme.
+*           perform f_convert_value USING <g_free_goods>-matnr
+*                                         <g_free_goods>-knrez
+*                                         lv_vrkme
+*                                         wa_popup-knrzm
+*                                         wa_popup-knrzm.
+*
+** { MODIFY SYNCRONIK CAGG 03/14/2016
+*
+*
+** { MODIFY SYNCRONIK 02/13/2016
+**          SELECT SINGLE umren INTO lv_umren
+**                   FROM MARM WHERE matnr = <g_free_goods>-matnr
+**                               AND meinh = <g_detalle_sin_cargo>-knrme.
+**
+**          IF SY-SUBRC = 0.
+**            wa_popup-umren  = lv_umren.
+**          ELSE.
+**            wa_popup-umren  = 1.
+**          ENDIF.
+** { MODIFY SYNCRONIK CAGG 03/14/2016
+***           perform f_get_vrkme_from_matnr USING  <g_free_goods>-matnr CHANGING lv_vrkme.
+***           perform f_convert_value USING <g_free_goods>-matnr
+***                                         lv_vrkme
+***                                         <g_free_goods>-knrez
+***                                         '1.000'
+***                                         wa_popup-umren.
+** { MODIFY SYNCRONIK CAGG 03/14/2016
+*
+** } MODIFY SYNCRONIK 02/13/2016
+*          wa_popup-knumh  = <g_detalle_sin_cargo>-knumh.
+*          wa_popup-knr_ag = <g_detalle_sin_cargo>-knr_ag.
+*          wa_popup-knr_pi = <g_detalle_sin_cargo>-knr_pi.
+**         wa_popup-knrzm  = <g_detalle_sin_cargo>-knrzm.
+** { MODIFY SYNCRONIK CAGG 14/03/2016
+*          wa_popup-knrez  = <g_free_goods>-knrez.
+*          wa_popup-vrkme  = lv_vrkme.
+*          wa_popup-umren = <G_FREE_GOODS>-KNRZM / 1000.
+**         PERFORM f_set_no_decimals USING <g_detalle_sin_cargo>-knrzm CHANGING wa_popup-umren.
+*          "lv_knrzm_no_dec = <g_detalle_sin_cargo>-knrzm.
+*          "wa_popup-umren  = lv_knrzm_no_dec.
+** { MODIFY SYNCRONIK CAGG 14/03/2016
+*          wa_popup-botext = <g_detalle_sin_cargo>-botext.
+**         { INSERT SYNCRONIK 02/11/2016
+*         " wa_popup-knrzm =  <g_detalle_sin_cargo>-knrez.
+**         } INSERT SYNCRONIK 02/11/2016
+*          APPEND wa_popup TO it_popup.
+*
+*        ENDIF.
+*      ENDIF.
+*    ELSE.
+*      wa_popup-matnr = 0.
+*    ENDIF.
+*  ENDLOOP.
+*
+*********************
+** Borra partidas
+**>INICIO CAGG 13.06.2016 Ajustes Quimica Goncal
+**     LOOP AT XVBAP WHERE PSTYV = 'ZTNN' OR PSTYV = 'ZTQ2' OR PSTYV = 'ZTQ3'.
+*      LOOP AT XVBAP WHERE PSTYV = 'ZTNN' OR PSTYV = 'ZBNN' OR PSTYV = 'ZTQ2' OR PSTYV = 'ZTQ3' OR PSTYV = 'ZTB5'.
+**<FIN CAGG 13.06.2016 Ajustes Quimica Goncal
+**        POSNR CP '00090*'.
+*        wa_order_header_inx-updateflag = c_u.
+*        wa_order_item_in-itm_number = xvbap-posnr.
+*        wa_order_item_inx-updateflag    = c_d.
+*        wa_order_item_inx-itm_number = xvbap-posnr.
+*
+*        APPEND: wa_order_item_in   TO it_order_item_in,
+*                wa_order_item_inx  TO it_order_item_inx.
+*      ENDLOOP.
+**
+*      IF NOT it_order_item_in[]  IS INITIAL AND
+*         NOT it_order_item_inx[] IS INITIAL.
+*        EXPORT: xvbap-vbeln         TO MEMORY ID 'docborra',
+*                wa_order_header_inx TO MEMORY ID 'heaborra',
+*                it_order_item_in    TO MEMORY ID 'itemborra',
+*                it_order_item_inx   TO MEMORY ID 'itemxborra'.
+*      ENDIF.
+********************
+*
+*  SORT it_popup.
+*  DELETE ADJACENT DUPLICATES FROM it_popup.
+** { SYNCRONIK 02/11/2016
+**  Borra los registros que no tenga cantidad
+*  DELETE it_popup WHERE knrzm IS INITIAL.
+** } SYNCRONIK 02/11/2016
+*  IF NOT it_popup[] IS INITIAL.
+*
+*
+*    DESCRIBE TABLE it_popup LINES lv_lines.
+*    lv_lines = lv_lines + 4.
+****************************************************
+*    LOOP AT it_popup ASSIGNING <g_popup>.
+*      <g_popup>-reg = sy-tabix.
+*    ENDLOOP.
+*******************************************************
+*****************************************************
+** { MODIFY SYNCRONIK 02/13/2016
+**    fieldcat-tabname = 'IT_POPUP'.
+**    fieldcat-fieldname = 'MATNR'.
+**    fieldcat-seltext_m = 'Material'.
+**    fieldcat-ddictxt = 'M'.
+**    fieldcat-outputlen = 10.
+**    APPEND fieldcat.
+**    CLEAR fieldcat.
+**
+**    fieldcat-tabname = 'IT_POPUP'.
+**    fieldcat-fieldname = 'MAKTG'.
+**    fieldcat-seltext_m = 'Denominación'.
+**    fieldcat-ddictxt = 'M'.
+**    fieldcat-outputlen = 40.
+**    APPEND fieldcat.
+**    CLEAR fieldcat.
+**
+**    fieldcat-tabname = 'IT_POPUP'.
+**    fieldcat-fieldname = 'UMREN'.
+**    fieldcat-seltext_m = 'K/L'.
+**    fieldcat-ddictxt = 'M'.
+**    fieldcat-outputlen = 4.
+**    APPEND fieldcat.
+**    CLEAR fieldcat.
+**
+**    fieldcat-tabname = 'IT_POPUP'.
+**    fieldcat-fieldname = 'KNRZM'.
+**    fieldcat-seltext_m = 'Cant. Max.'.
+**    fieldcat-ddictxt = 'M'.
+**    fieldcat-outputlen = 15.
+**    APPEND fieldcat.
+**    CLEAR fieldcat.
+**
+**    fieldcat-tabname = 'IT_POPUP'.
+**    fieldcat-fieldname = 'KNREZ'.
+**    fieldcat-seltext_m = 'UoM'.
+**    fieldcat-ddictxt = 'M'.
+**    fieldcat-outputlen = 4.
+**    APPEND fieldcat.
+**    CLEAR fieldcat.
+**
+**    fieldcat-tabname = 'IT_POPUP'.
+**    fieldcat-fieldname = 'LSMENG'.
+**    fieldcat-seltext_m = 'Bonificación'.
+**    fieldcat-ddictxt = 'M'.
+***    fieldcat-edit    = 'X'.
+**    fieldcat-input   = 'X'.
+**    fieldcat-outputlen = 7.
+**    APPEND fieldcat.
+**    CLEAR fieldcat.
+**
+**    fieldcat-tabname = 'IT_POPUP'.
+**    fieldcat-fieldname = 'KNR_PI'.
+**    fieldcat-seltext_m = 'Programa'.
+**    fieldcat-ddictxt = 'M'.
+**    fieldcat-outputlen = 6.
+**    APPEND fieldcat.
+**    CLEAR fieldcat.
+**
+**    fieldcat-tabname = 'IT_POPUP'.
+**    fieldcat-fieldname = 'KNR_AG'.
+**    fieldcat-seltext_m = 'Promoción'.
+**    fieldcat-ddictxt = 'M'.
+**    fieldcat-outputlen = 6.
+**    APPEND fieldcat.
+**    CLEAR fieldcat.
+**
+**    fieldcat-tabname = 'IT_POPUP'.
+**    fieldcat-fieldname = 'BOTEXT'.
+**    fieldcat-seltext_m = 'Desc. de la promoción'.
+**    fieldcat-ddictxt = 'M'.
+**    fieldcat-outputlen = 40.
+**    APPEND fieldcat.
+**    CLEAR fieldcat.
+**
+**    fieldcat-tabname = 'IT_POPUP'.
+**    fieldcat-fieldname = 'KNUMH'.
+**    fieldcat-seltext_m = 'Nº reg. condición'.
+**    fieldcat-ddictxt = 'M'.
+**    fieldcat-outputlen = 10.
+**    APPEND fieldcat.
+**    CLEAR fieldcat.
+**
+*****************************************************
+**    fieldcat-tabname = 'IT_POPUP'.
+**    fieldcat-fieldname = 'REG'.
+**    fieldcat-seltext_m = 'Nº reg.'.
+**    fieldcat-ddictxt = 'M'.
+**    fieldcat-outputlen = 5.
+**    APPEND fieldcat.
+**    CLEAR fieldcat.
+***********************************************
+*
+*
+*
+**    CALL FUNCTION 'REUSE_ALV_POPUP_TO_SELECT'
+**      EXPORTING
+**        I_TITLE                 = 'Promociones'
+**        I_SELECTION             = 'X'
+***        I_ALLOW_NO_SELECTION    =
+**        I_ZEBRA                 = 'X'
+**        I_SCREEN_START_COLUMN   = 0
+**        I_SCREEN_START_LINE     = 0
+**        I_SCREEN_END_COLUMN     = 173
+**        I_SCREEN_END_LINE       = 0
+***        I_CHECKBOX_FIELDNAME    = 'CHECK'
+***        I_LINEMARK_FIELDNAME    =
+*********        I_SCROLL_TO_SEL_LINE    = 'X'
+**        i_tabname               = 'IT_POPUP'
+***        I_STRUCTURE_NAME        =
+**        IT_FIELDCAT             = fieldcat[]
+***        IT_EXCLUDING            =
+***        I_CALLBACK_PROGRAM      =
+***        I_CALLBACK_USER_COMMAND =
+***        IS_PRIVATE              =
+**      IMPORTING
+***        ES_SELFIELD             =
+**        E_EXIT                  = e_exit
+**      TABLES
+**        t_outtab                = IT_POPUP
+**      EXCEPTIONS
+**        PROGRAM_ERROR           = 1
+**        OTHERS                  = 2.
+**
+**      IF e_exit = 'X'.
+**        MESSAGE 'No seleccionó ninguna promoción' TYPE 'I'.
+**      ENDIF.
+*    perform f_set_fieldcat TABLES fieldcat[].
+*    SORT it_popup BY KNUMH ASCENDING
+*                     UMREN ASCENDING.
+*
+**   { INSERT SYNCRONIK 08.11.2016
+**Solamente aplica simulacion de bonificaciones para recalculo en ATP.
+*IF VBAK-BSTNK EQ 'SIMULA_BONIFICACION'.
+**     Se exporta a memoria la informaci'on de it_promo_h e it_popup y se finaliza el procesamiento para que no consuma numero de rango
+*      EXPORT it_promo_h  TO MEMORY ID 'IT_PROMO_H'.
+*      EXPORT it_popup    TO MEMORY ID 'IT_POPUP'.
+*
+*      EXIT.
+*ENDIF.
+**   } INSERT SYNCRONIK 08.11.2016
+*    perform f_show_popup_to_select   TABLES fieldcat[]
+*                                            it_popup[].
+*
+** } MODIFY SYNCRONIK 02/13/2016
+*
+********************************
+*      DELETE IT_POPUP WHERE lsmeng eq 0.
+********************************
+*      IF NOT it_popup[] IS INITIAL.
+*        SORT it_popup.
+*        CLEAR: lv_suma, lv_knrzm.
+**       { INSERT SYNCRONIK 02/13/2016
+**        PERFORM f_validate_qty_scale TABLES it_popup.
+*         PERFORM f_check_qty_max_group USING it_popup[].
+*         PERFORM f_check_total_bonus   USING it_popup[].
+**       } INSERT SYNCRONIK 02/13/2016
+**        LOOP AT IT_POPUP INTO wa_popup.
+**          lv_numeros = wa_popup-lsmeng.
+**          CONDENSE lv_numeros NO-GAPS.
+**          IF lv_numeros CO c_numeros OR wa_popup-lsmeng IS INITIAL.
+**
+**            SELECT SINGLE meins INTO lv_meins FROM mara WHERE matnr = wa_popup-matnr.
+**            IF SY-SUBRC = 0 AND lv_meins ne wa_popup-knrez.
+**              lv_suma  = lv_suma + ( wa_popup-lsmeng * wa_popup-umren ).
+**            ELSE.
+**              lv_suma  = lv_suma + wa_popup-lsmeng.
+**            ENDIF.
+**            lv_knrzm = wa_popup-knrzm.
+**            AT END OF knumh. "knr_ag.
+**              IF lv_suma > lv_knrzm.
+**                MESSAGE 'Bonificación es mayor' TYPE 'E'.
+**              ELSE.
+**                CLEAR: lv_suma, lv_knrzm.
+**              ENDIF.
+**            ENDAT.
+**          ELSE.
+**            MESSAGE 'Capture solo números en bonificación' TYPE 'E'.
+**          ENDIF.
+**        ENDLOOP.
+*
+******        DELETE IT_POPUP WHERE lsmeng eq 0.
+*        IF IT_POPUP[] IS INITIAL AND SY-TCODE = 'VA02' AND e_exit = ' '.
+*          MESSAGE 'Seleccione una promoción' TYPE 'E'.
+*        ENDIF.
+*
+** Inserta Partidas
+*        REFRESH: it_order_item_in, it_order_item_inx, it_schedule_lines,
+*                 it_schedule_linesx, it_extension, it_return, it_order_text.
+*        CLEAR  : wa_order_item_in, wa_order_item_inx, wa_schedule_lines,
+*                 wa_schedule_linesx, wa_extension, wa_order_header_inx,
+*                 wa_order_header_in, wa_order_text.
+*        LOOP AT IT_POPUP INTO wa_popup.
+************************
+*          LOOP AT xvbap WHERE posnr+0(3) = '9'.
+**           IF xvbap-pstyv <> 'ZTNN' AND xvbap-pstyv <> 'ZTQ2' AND xvbap-pstyv <> 'ZTQ3'. "CAGG QUIMICA GONCAL 13.06.2016
+*            IF xvbap-pstyv <> 'ZTNN' AND xvbap-pstyv <> 'ZBNN' AND xvbap-pstyv <> 'ZTQ2' AND xvbap-pstyv <> 'ZTQ3' AND xvbap-pstyv <> 'ZTB5'. "CAGG QUIMICA GONCAL 13.06.2016
+*              lv_itm_number = lv_itm_number + 11.
+*            ENDIF.
+*          ENDLOOP.
+************************
+*          wa_order_header_inx-updateflag = c_u.
+*          wa_order_item_in-itm_number    = lv_itm_number.
+*          wa_order_item_in-material      = wa_popup-matnr.
+*          SELECT SINGLE mtpos INTO lv_mtpos
+*                              FROM mvke WHERE matnr EQ wa_popup-matnr
+*                                          AND vkorg EQ xvbak-vkorg.
+*          SELECT SINGLE pstyv INTO wa_order_item_in-item_categ
+*                              FROM t184 WHERE auart EQ xvbak-auart
+*                                          AND mtpos EQ lv_mtpos
+*                                          AND vwpos EQ c_free.
+*
+*         wa_order_item_inx-itm_number    = lv_itm_number.
+*         wa_order_item_inx-updateflag    = c_i.
+*         wa_order_item_inx-material      = c_x.
+*         wa_order_item_inx-item_categ    = c_x.
+*
+*         wa_schedule_lines-itm_number    = lv_itm_number.
+*         wa_schedule_lines-sched_line    = c_0001.
+*         wa_schedule_lines-req_qty       = wa_popup-lsmeng.
+*         wa_schedule_lines-req_qty       = wa_schedule_lines-req_qty * 1000.
+*
+*         wa_schedule_linesx-itm_number   = lv_itm_number.
+*         wa_schedule_linesx-sched_line   = c_0001.
+*         wa_schedule_linesx-updateflag   = c_i.
+*         wa_schedule_linesx-req_qty      = c_x.
+*
+*         wa_extension-structure          = c_vbap.
+*         CONCATENATE xvbap-vbeln xvbap-posnr
+*                     wa_popup-knr_ag wa_popup-knr_pi
+*                INTO wa_extension-valuepart1.
+*
+*         wa_order_text-text_id    = 'Z002'.
+**         wa_order_text-doc_number = xvbap-vbeln.
+*         wa_order_text-itm_number = lv_itm_number.
+*         wa_order_text-langu      = 'S'.
+*         wa_order_text-text_line  = wa_popup-knr_ag.
+*
+*         APPEND: wa_order_item_in   TO it_order_item_in,
+*                 wa_order_item_inx  TO it_order_item_inx,
+*                 wa_schedule_lines  TO it_schedule_lines,
+*                 wa_schedule_linesx TO it_schedule_linesx,
+*                 wa_extension       TO it_extension,
+*                 wa_order_text      TO it_order_text.
+*
+*          lv_itm_number = lv_itm_number + 10.
+******************
+*          wa_promo-pos      = lv_itm_number.
+*          wa_promo-knuma_pi = wa_popup-knr_pi.
+*          wa_promo-knuma_ag = wa_popup-knr_ag.
+*          APPEND wa_promo TO it_promo.
+**********************
+*        ENDLOOP.
+*
+***--- INI MAMG SYNCRONIK 24.10.2016 GE1K918493
+**
+***--- INI MAMG SYNCRONIK 27.10.2016 GE1K918493
+*        SORT it_promo_h_sum_single BY knumh knr_ag matnr posnr.
+*        DATA lv_kwmeng_promo(16) TYPE C.
+***--- FIN MAMG SYNCRONIK 27.10.2016 GE1K918493
+*
+*        "Indicar promoción en texto posición de Material con Cargo para identificar promoción en entregas.
+*        LOOP AT it_promo_h INTO wa_promo_h.
+*
+*         CLEAR: wa_order_text, wa_order_item_in, wa_order_item_inx,
+*               wa_schedule_lines, wa_schedule_linesX.
+*
+***--- INI MAMG SYNCRONIK 27.10.2016 GE1K918493
+*         CLEAR w_promo_single.
+*         "Obtener Cantidad en unidades de la promoción.
+*         READ TABLE it_promo_h_sum_single INTO w_promo_single
+*         WITH KEY knumh = wa_promo_h-knumh
+*                  knr_ag = wa_promo_h-knr_ag
+*                  matnr = wa_promo_h-matnr
+*                  posnr = wa_promo_h-posnr
+*                  BINARY SEARCH.
+***--- FIN MAMG SYNCRONIK 27.10.2016 GE1K918493
+*
+*         wa_order_text-text_id    = 'Z002'.
+**         wa_order_text-doc_number = xvbap-vbeln.
+*         wa_order_text-itm_number = wa_promo_h-posnr.
+*         wa_order_text-langu      = 'S'.
+***--- INI MAMG SYNCRONIK 27.10.2016 GE1K918493
+*         CLEAR lv_kwmeng_promo.
+*         TRY.
+*         lv_kwmeng_promo = w_promo_single-kwmeng.
+*         CATCH cx_root.
+*         ENDTRY.
+*         "Incluir Unidad de Promoción y Total de la posición en Unidad ed la Promoción
+*         CONCATENATE wa_promo_h-knr_ag(10)
+*         '-Se usa para el Recalculo de Promocion en Entrega solo si haya producido posiciones sin cargo.' INTO
+*         wa_order_text-text_line.
+*         APPEND wa_order_text      TO it_order_text.
+*         CLEAR wa_order_text-text_line.
+*         "Incluir Unidad de Promoción y Total de la posición en Unidad ed la Promoción
+*         CONCATENATE '-' lv_kwmeng_promo(16)
+*         INTO wa_order_text-text_line.
+*         APPEND wa_order_text      TO it_order_text.
+*         CLEAR wa_order_text-text_line.
+*         "Incluir Unidad de Promoción y Total de la posición en Unidad ed la Promoción
+*         CONCATENATE '-'  w_promo_single-knrme(3)
+*         INTO wa_order_text-text_line.
+*         APPEND wa_order_text      TO it_order_text.
+*
+***--- FIN MAMG SYNCRONIK 27.10.2016 GE1K918493
+*
+*         wa_order_item_in-itm_number    = wa_promo_h-posnr.
+*         wa_order_item_in-material      = wa_promo_h-matnr.
+**         SELECT SINGLE mtpos INTO lv_mtpos
+**                             FROM mvke WHERE matnr EQ wa_promo_h-matnr
+**                                          AND vkorg EQ xvbak-vkorg.
+**         SELECT SINGLE pstyv INTO wa_order_item_in-item_categ
+**                             FROM t184 WHERE auart EQ xvbak-auart
+**                                          AND mtpos EQ lv_mtpos
+**                                          AND vwpos NE c_free.
+*
+*         wa_order_item_inx-itm_number    = wa_promo_h-posnr.
+*         wa_order_item_inx-updateflag    = c_u.
+*         wa_order_item_inx-material      = c_x.
+**         wa_order_item_inx-item_categ    = c_x.
+*
+*         wa_schedule_lines-itm_number    = wa_promo_h-posnr.
+*         wa_schedule_lines-sched_line    = c_0001.
+**         wa_schedule_lines-req_qty       = wa_popup-lsmeng.
+**         wa_schedule_lines-req_qty       = wa_schedule_lines-req_qty * 1000.
+*
+*         wa_schedule_linesx-itm_number   = wa_promo_h-posnr.
+*         wa_schedule_linesx-sched_line   = c_0001.
+*         wa_schedule_linesx-updateflag   = c_u.
+**         wa_schedule_linesx-req_qty      = c_x.
+*
+*         APPEND: wa_order_item_in   TO it_order_item_in,
+*                 wa_order_item_inx  TO it_order_item_inx,
+*                 wa_schedule_lines  TO it_schedule_lines,
+*                 wa_schedule_linesx TO it_schedule_linesx.
+*        ENDLOOP.
+**
+***--- FIN MAMG SYNCRONIK 24.10.2016 GE1K918493
+*
+*        IF NOT it_promo[] IS INITIAL.
+*          EXPORT it_promo[] TO MEMORY ID 'PROMO'.
+*        ENDIF.
+*
+*        IF NOT it_order_item_in[]  IS INITIAL AND
+*           NOT it_schedule_lines[] IS INITIAL.
+*
+*          EXPORT: it_order_item_in    TO MEMORY ID 'item',
+*                  it_order_item_inx   TO MEMORY ID 'itemx',
+*                  it_schedule_lines   TO MEMORY ID 'sched',
+*                  it_schedule_linesx  TO MEMORY ID 'schedx',
+*                  it_extension        TO MEMORY ID 'exten',
+*                  wa_order_header_inx TO MEMORY ID 'header',
+*                  it_order_text       TO MEMORY ID 'text'.
+*        ENDIF.
+*      ENDIF.
+*    ENDIF.
+*  ENDIF.
+*ENDIF.
+
+ENDENHANCEMENT.
+*$*$-End:   (5)---------------------------------------------------------------------------------$*$*
+
+
+ENDFORM.
+*eject
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""$"$\SE:(6) Include MV45AFZZ, Final                                                                                                                           S
+*$*$-Start: (6)---------------------------------------------------------------------------------$*$*
+ENHANCEMENT 2  ZSDBA_MV45AFZZ_01.    "active version
+*
+*FORM f_convert_value using p_matnr        TYPE MARA-MATNR
+*                           p_from_unit    TYPE MARA-MEINS
+*                           p_to_unit      TYPE MARA-MEINS
+*                           P_MENGE
+*                  changing p_value.
+*DATA lv_menge TYPE EKPO-MENGE.
+*DATA lv_new_value TYPE EKPO-MENGE.
+*
+*lv_menge = p_menge.
+*
+*TRY.
+*  CALL FUNCTION 'MD_CONVERT_MATERIAL_UNIT'
+*    EXPORTING
+*      I_MATNR                    = p_matnr
+*      I_IN_ME                    = p_from_unit
+*      I_OUT_ME                   = p_to_unit
+*      I_MENGE                    = LV_MENGE
+*   IMPORTING
+*     E_MENGE                    = LV_NEW_VALUE
+*   EXCEPTIONS
+*     ERROR_IN_APPLICATION       = 1
+*     ERROR                      = 2
+*     OTHERS                     = 3
+*            .
+*  IF SY-SUBRC <> 0.
+** Implement suitable error handling here
+*  ENDIF.
+*  CATCH CX_ROOT.
+*    p_value = '1.000'.
+*  ENDTRY.
+*
+*  p_value = lv_new_value.
+*ENDFORM.
+*
+*FORM f_set_fieldcat tables fieldcat TYPE slis_t_fieldcat_alv.
+*    fieldcat-tabname = 'IT_POPUP'.
+*    fieldcat-fieldname = 'MATNR'.
+*    fieldcat-seltext_m = 'Material'.
+*    fieldcat-ddictxt = 'M'.
+*    fieldcat-outputlen = 10.
+*    APPEND fieldcat.
+*    CLEAR fieldcat.
+*
+*    fieldcat-tabname = 'IT_POPUP'.
+*    fieldcat-fieldname = 'MAKTG'.
+*    fieldcat-seltext_m = 'Denominación'.
+*    fieldcat-ddictxt = 'M'.
+*    fieldcat-outputlen = 40.
+*    APPEND fieldcat.
+*    CLEAR fieldcat.
+*
+*    fieldcat-tabname = 'IT_POPUP'.
+*    fieldcat-fieldname = 'UMREN'.
+**<INICIO SYNCRONIK CAGG 14022016
+**   fieldcat-seltext_m = 'K/L'.
+*    fieldcat-seltext_m = 'Cant.Prom.'.
+**>FIN SYNCRONIK CAGG 14022016
+*    fieldcat-ddictxt = 'M'.
+*    fieldcat-outputlen = 4.
+*    APPEND fieldcat.
+*    CLEAR fieldcat.
+*
+**<INICIO SYNCRONIK CAGG 14022016
+*    fieldcat-tabname = 'IT_POPUP'.
+*    fieldcat-fieldname = 'KNREZ'.
+*    fieldcat-seltext_m = 'UMP'.
+*    fieldcat-ddictxt = 'M'.
+*    fieldcat-outputlen = 4.
+*    APPEND fieldcat.
+*    CLEAR fieldcat.
+**>FIN SYNCRONIK CAGG 14022016
+*
+*
+*    fieldcat-tabname = 'IT_POPUP'.
+*    fieldcat-fieldname = 'KNRZM'.
+**<INICIO SYNCRONIK CAGG 14022016
+**   fieldcat-seltext_m = 'Cant. Max.'.
+*    fieldcat-seltext_m = 'Cant.Venta'.
+**>FIN SYNCRONIK CAGG 14022016
+*    fieldcat-ddictxt = 'M'.
+*    fieldcat-outputlen = 15.
+*    APPEND fieldcat.
+*    CLEAR fieldcat.
+*
+*    fieldcat-tabname = 'IT_POPUP'.
+**<INICIO SYNCRONIK CAGG 14022016
+**   fieldcat-fieldname = 'KNREZ'.
+*    fieldcat-fieldname = 'VRKME'.
+**   fieldcat-seltext_m = 'UoM'.
+*    fieldcat-seltext_m = 'UMV'.
+**<INICIO SYNCRONIK CAGG 14022016
+*    fieldcat-ddictxt = 'M'.
+*    fieldcat-outputlen = 4.
+*    APPEND fieldcat.
+*    CLEAR fieldcat.
+*
+*    fieldcat-tabname = 'IT_POPUP'.
+*    fieldcat-fieldname = 'LSMENG'.
+*    fieldcat-seltext_m = 'Bonificación'.
+*    fieldcat-ddictxt = 'M'.
+**    fieldcat-edit    = 'X'.
+*    fieldcat-input   = 'X'.
+*    fieldcat-outputlen = 7.
+*    APPEND fieldcat.
+*    CLEAR fieldcat.
+*
+*    fieldcat-tabname = 'IT_POPUP'.
+*    fieldcat-fieldname = 'KNR_PI'.
+*    fieldcat-seltext_m = 'Programa'.
+*    fieldcat-ddictxt = 'M'.
+*    fieldcat-outputlen = 6.
+*    APPEND fieldcat.
+*    CLEAR fieldcat.
+*
+*    fieldcat-tabname = 'IT_POPUP'.
+*    fieldcat-fieldname = 'KNR_AG'.
+*    fieldcat-seltext_m = 'Promoción'.
+*    fieldcat-ddictxt = 'M'.
+*    fieldcat-outputlen = 6.
+*    APPEND fieldcat.
+*    CLEAR fieldcat.
+*
+*    fieldcat-tabname = 'IT_POPUP'.
+*    fieldcat-fieldname = 'BOTEXT'.
+*    fieldcat-seltext_m = 'Desc. de Promoción'.
+*    fieldcat-ddictxt = 'M'.
+*    fieldcat-outputlen = 40.
+*    APPEND fieldcat.
+*    CLEAR fieldcat.
+*
+*    fieldcat-tabname = 'IT_POPUP'.
+*    fieldcat-fieldname = 'KNUMH'.
+*    fieldcat-seltext_m = 'Reg. de Condición'.
+*    fieldcat-ddictxt = 'M'.
+*    fieldcat-outputlen = 10.
+*    APPEND fieldcat.
+*    CLEAR fieldcat.
+*
+****************************************************
+*    fieldcat-tabname = 'IT_POPUP'.
+*    fieldcat-fieldname = 'REG'.
+*    fieldcat-seltext_m = 'Nº reg.'.
+*    fieldcat-ddictxt = 'M'.
+*    fieldcat-outputlen = 5.
+*    APPEND fieldcat.
+*    CLEAR fieldcat.
+**********************************************
+*ENDFORM.
+*
+*form f_show_popup_to_Select TABLES fieldcat  TYPE slis_t_fieldcat_alv
+*                                   it_popup.
+*
+*   data e_exit type boolean.
+*   CALL FUNCTION 'REUSE_ALV_POPUP_TO_SELECT'
+*      EXPORTING
+*        I_TITLE                 = 'Promociones'
+*        I_SELECTION             = 'X'
+**        I_ALLOW_NO_SELECTION    =
+*        I_ZEBRA                 = 'X'
+*        I_SCREEN_START_COLUMN   = 0
+*        I_SCREEN_START_LINE     = 0
+*        I_SCREEN_END_COLUMN     = 173
+*        I_SCREEN_END_LINE       = 0
+**        I_CHECKBOX_FIELDNAME    = 'CHECK'
+**        I_LINEMARK_FIELDNAME    =
+********        I_SCROLL_TO_SEL_LINE    = 'X'
+*        i_tabname               = 'IT_POPUP'
+**        I_STRUCTURE_NAME        =
+*        IT_FIELDCAT             = fieldcat[]
+**        IT_EXCLUDING            =
+**        I_CALLBACK_PROGRAM      =
+**        I_CALLBACK_USER_COMMAND =
+**        IS_PRIVATE              =
+*      IMPORTING
+**        ES_SELFIELD             =
+*        E_EXIT                  = e_exit
+*      TABLES
+*        t_outtab                = IT_POPUP
+*      EXCEPTIONS
+*        PROGRAM_ERROR           = 1
+*        OTHERS                  = 2.
+*
+*      IF e_exit = 'X'.
+*        MESSAGE 'No seleccionó ninguna promoción' TYPE 'I'.
+*      ENDIF.
+*
+*ENDFORM.
+*
+*data gv_variable type string.
+*
+*FORM f_validate_qty_scale.
+*
+*ENDFORM.
+*
+** Obtiene todos los materiales y sus posibles unidades de medida
+*FORM f_get_mara_data.
+*  DATA lt_free_goods type table of ty_free_goods.
+*  lt_free_goods[] = it_free_goods[].
+*  SORT lt_free_goods BY MATNR.
+*  DELETE ADJACENT DUPLICATES FROM lt_free_goods COMPARING MATNR.
+*  IF NOT lt_free_goods  IS INITIAL.
+*   SELECT T1~MATNR
+*          T2~VRKME
+*          T1~MEINS
+*     INTO TABLE gt_mara
+*     FROM MARA AS T1
+*     INNER JOIN MVKE AS T2 ON T1~MATNR = T2~MATNR
+*     FOR ALL ENTRIES IN lt_free_goods
+**    WHERE T2~VKORG  EQ C_MX12 AND "CAGG QUIMICA GONCAL 13.06.2016
+*     WHERE T2~VKORG  EQ VBAK-VKORG AND "CAGG QUIMICA GONCAL 13.06.2016
+*           T1~MATNR  eq lt_free_goods-matnr.
+*  ENDIF.
+*ENDFORM.
+*
+*FORM f_get_vrkme_from_matnr USING p_matnr CHANGING p_value.
+*  DATA ls_mara LIKE LINE OF gt_mara.
+*  READ TABLE gt_mara INTO ls_mara with key matnr = p_matnr.
+*  IF SY-SUBRC EQ 0.
+*    p_value =  ls_mara-vrkme. " Por default toma el VRKME
+*    IF p_value iS INITIAL.
+*      p_value = ls_mara-meins.
+*    endif.
+*
+**>INICIO CAGG 17.06.2016 Unidad de Medida de Venta para Tiendita QG
+*
+*  DATA: r_vkbur  TYPE RANGE OF vkbur.
+*
+*  REFRESH R_VKBUR.
+*
+*  CALL METHOD zglcl_tvarvc=>get_values
+*    EXPORTING
+*      iv_prog            = 'ZMV50AFZZ1'
+*      iv_field           = 'VKBUR_UMB'
+*    IMPORTING
+*      et_range           = R_VKBUR
+*    EXCEPTIONS
+*      variable_not_found = 1
+*      OTHERS             = 2.
+*
+*   IF SY-SUBRC IS INITIAL AND VBAK-VKBUR IN R_VKBUR.
+*      P_VALUE = LS_MARA-MEINS.
+*   ENDIF.
+**<FIN CAGG 17.06.2016 Unidad de Medida de Venta para Tiendita QG
+* endif.
+*
+*ENDFORM.
+*
+** Obtiene el rango de todos los materiales en it_free_goods.
+*FORM f_set_matnr_range.
+*  DATA ls_matnr      LIKE LINE OF gr_matnr.
+*  DATA ls_free_goods LIKE LINE OF it_free_goods.
+*
+*  ls_matnr-sign = 'I'.
+*  ls_matnr-option = 'EQ'.
+*  LOOP AT it_free_goods INTO ls_free_goods.
+*
+*   ls_matnr-low = ls_free_goods-matnr.
+**>INICIO SYNCRONIK CAGG 14022016
+* APPEND ls_matnr TO gr_matnr.
+**<FIN SYNCRONIK CAGG 14022016
+*
+* ENDLOOP.
+*
+*ENDFORM.
+*
+**No debe permitir en el POPUP combinar materiales con distinta cantidad de regalo.
+*FORM f_check_qty_max_group USING pt_popup TYPE tty_popup.
+*
+*  DATA lt_popup TYPE TABLE OF ty_popup.
+*  DATA lt_popup_knumh TYPE TABLE OF ty_popup.
+*  DATA lt_popup_knumh_KNRZM type table of ty_popup.
+*  DATA ls_popup like line of lt_popup.
+*  DATA lv_num_groups_selected TYPE I.
+*  lt_popup[] = pt_popup[].
+*
+** Se borran aquellos registros que no tengan nada de informacion
+*  DELETE lt_popup WHERE LSMENG IS INITIAL.
+*  IF lt_popup IS INITIAL.
+*    MESSAGE ID C_MSGCLASS_BONIF TYPE 'E' NUMBER '003'.
+*  ELSE.
+*    SORT lt_popup by KNUMH.
+*    LOOP AT lt_popup INTO ls_popup.
+*      AT NEW knumh.
+**       Por cada nueva KNUMH selecciona los registros en lt_popup_knumh y sobre esta se valida las cantidades en los grupos seleccionaods
+*        clear lv_num_groups_selected.
+*        lt_popup_knumh[] = lt_popup[].
+*        lt_popup_knumh_KNRZM[] = lt_popup[].
+*        DELETE lt_popup_knumh WHERE KNUMH NE ls_popup-knumh.
+*      ENDAT.
+**     Se ordena por grupo de cantidades maximas
+*       SORT lt_popup_knumh BY UMREN.
+**     Se borran los duplicados
+*       DELETE ADJACENT DUPLICATES FROM lt_popup_knumh COMPARING UMREN.
+**     Se obtiene la cantidad de grupos seleccionados
+*      DESCRIBE TABLE lt_popup_knumh LINES lv_num_groups_selected.
+**     Si es mayor que 1, arroja el error
+*      IF lv_num_groups_selected > 1.
+*        MESSAGE ID C_MSGCLASS_BONIF TYPE 'E' NUMBER '004'.
+*      ENDIF.
+*
+*      DELETE lt_popup_knumh_KNRZM WHERE UMREN NE ls_popup-UMREN.
+*      SORT lt_popup_knumh_KNRZM BY KNRZM.
+*      DELETE ADJACENT DUPLICATES FROM lt_popup_knumh_KNRZM COMPARING KNRZM.
+*
+**     Se obtiene la cantidad de grupos seleccionados
+*      DESCRIBE TABLE lt_popup_knumh_KNRZM LINES lv_num_groups_selected.
+**     Si es mayor que 1, arroja el error
+*      IF lv_num_groups_selected > 1.
+*        MESSAGE ID C_MSGCLASS_BONIF TYPE 'E' NUMBER '004'.
+*      ENDIF.
+*
+*    endloop.
+*  ENDIF.
+*ENDFORM.
+**
+*FORM f_check_total_bonus USING it_popup TYPE TTY_POPUP.
+*
+*    DATA wa_popup LIKE LINE OF it_popup.
+*   data lv_numeros               TYPE string VALUE 0.
+*   data  c_numeros   TYPE string VALUE '0123456789'.
+*   data lv_meins type mara-meins.
+*   data lv_suma type lsmeng.
+*   DATA lv_knrzm TYPE knrzm.
+*
+*    LOOP AT IT_POPUP INTO wa_popup.
+*          lv_numeros = wa_popup-lsmeng.
+*          CONDENSE lv_numeros NO-GAPS.
+*
+**<INICIO SYNCRONIK CAGG 14022016
+*              wa_popup-lsmeng = wa_popup-lsmeng * 1000.
+**>FIN SYNCRONIK CAGG 14022016
+*
+*          IF lv_numeros CO c_numeros OR wa_popup-lsmeng IS INITIAL.
+**<INICIO SYNCRONIK CAGG 14022016
+**           SELECT SINGLE meins INTO lv_meins FROM mara WHERE matnr = wa_popup-matnr.
+**           IF SY-SUBRC = 0 AND lv_meins ne wa_popup-knrez.
+**             lv_suma  = lv_suma + ( wa_popup-lsmeng * wa_popup-umren ).
+**           ELSE.
+*             lv_suma  = lv_suma + wa_popup-lsmeng.
+**           ENDIF.
+**>FIN SYNCRONIK CAGG 14022016
+*            lv_knrzm = wa_popup-knrzm.
+*            AT END OF knumh. "knr_ag.
+*              IF lv_suma > lv_knrzm.
+*                MESSAGE 'Bonificación es mayor' TYPE 'E'.
+*              ELSE.
+*                CLEAR: lv_suma, lv_knrzm.
+*              ENDIF.
+*            ENDAT.
+*          ELSE.
+*            MESSAGE 'Capture solo números en bonificación' TYPE 'E'.
+*          ENDIF.
+*        ENDLOOP.
+*ENDFORM.
+*
+*FORM f_set_no_decimals USING p_in_value type KNRZM
+*                       CHANGING p_out_value.
+*  DATA lv_str_value(17) TYPE C.
+*  DATA lv_length type i.
+*
+*  write p_in_value to lv_str_value.
+*  CONDENSE lv_str_value  NO-GAPS.
+*
+*  lv_length = STRLEN( lv_str_value ) - 4.
+*
+*  try.
+*  p_out_value = lv_str_value+0(lv_length).
+*  catch cx_root.
+*    p_out_value = p_in_value.
+*  endtry.
+*ENDFORM.
+*
+**------------------------------------------------------------------------------------------------
+** FORM f_get_suma_promo_by_knrme
+** Convierte todo los VRKME a KNRME por KNUMH y obtiene el total en la variable C_SUMA
+**------------------------------------------------------------------------------------------------
+*FORM f_get_suma_promo_by_knrme USING pit_promo_h TYPE tty_promo_h
+*                            CHANGING pet_promo_h_sum TYPE tty_promo_h
+***--- INI MAMG SYNCRONIK 27.10.2016 GE1K918493
+*                                     pet_promo_h_sum_single TYPE tty_promo_h
+***--- FIN MAMG SYNCRONIK 27.10.2016 GE1K918493
+*                                     .
+*  DATA lt_promo_h     TYPE TTY_PROMO_H.
+*  DATA lt_promo_h_sum TYPE TTY_PROMO_H.
+*  DATA ls_promo_h_sum LIKE LINE OF pit_promo_h.
+*  DATA ls_promo_h     LIKE LINE OF pit_promo_h.
+*  DATA ls_promo_h_tmp LIKE LINE OF pit_promo_h.
+*  lt_promo_h[] = pit_promo_h[].
+*
+***--- INI MAMG SYNCRONIK 27.10.2016 GE1K918493
+*  DATA lw_promo_single LIKE LINE OF pet_promo_h_sum_single.
+***--- FIN MAMG SYNCRONIK 27.10.2016 GE1K918493
+*
+*  SORT lt_promo_h BY KNUMH ASCENDING.
+*  LOOP AT lt_promo_h INTO ls_promo_h.
+*    ls_promo_h_tmp = ls_promo_h.
+*
+*    perform f_convert_value USING ls_promo_h-matnr
+*                                  ls_promo_h-vrkme
+*                                  ls_promo_h-knrme
+*                                  ls_promo_h-kwmeng
+*                                  ls_promo_h-kwmeng.
+*
+*    ls_promo_h_sum-knumh  = ls_promo_h-knumh.
+*    ls_promo_h_sum-kwmeng = ls_promo_h-kwmeng.
+*
+*
+*
+**   Conversion de unidades de medida
+*    at end of knumh.
+*       ls_promo_h_sum-knrmm  = ls_promo_h_tmp-knrmm.
+*    endat.
+***--- INI MAMG SYNCRONIK 27.10.2016 GE1K918493
+*       "Posiciones en unidades de promoción
+*       CLEAR lw_promo_single.
+*       lw_promo_single = ls_promo_h_sum.
+*       lw_promo_single-matnr = ls_promo_h-matnr.
+*       lw_promo_single-knrme = ls_promo_h-knrme.
+*       lw_promo_single-posnr = ls_promo_h-posnr.
+*       lw_promo_single-knr_ag = ls_promo_h-knr_ag.
+*       APPEND lw_promo_single TO pet_promo_h_sum_single.
+***--- FIN MAMG SYNCRONIK 27.10.2016 GE1K918493
+*    COLLECT ls_promo_h_sum INTO lt_promo_h_sum.
+*  ENDLOOP.
+*
+*  pet_promo_h_sum[] = lt_promo_h_sum[].
+*ENDFORM.
+*
+*FORM f_get_free_goods USING i_first_time TYPE BOOLEAN
+*                            i_promo_h    TYPE TY_PROMO_H
+*                            i_kondn      TYPE KONDN
+*                      changing it_promo_h  TYPE TTY_PROMO_H
+*                               it_detalle_sin_cargop TYPE tty_detalle_sin_cargo.
+*
+*  DATA it_tkomp             TYPE STANDARD TABLE OF komp WITH HEADER LINE.
+*  DATA it_detalle_sin_cargo TYPE STANDARD TABLE OF ty_detalle_sin_cargo.
+*  DATA it_kondn             TYPE STANDARD TABLE OF kondn.
+*  DATA wa_kondn             LIKE LINE OF it_kondn.
+*  DATA wa_promo_h           TYPE TY_PROMO_H.
+*  CONSTANTS: c_v(2)         TYPE c VALUE 'V ',
+*             c_zbn001(6)    TYPE c VALUE 'ZNA001', " 'ZZBN01',
+*             c_a(1)      TYPE c VALUE 'A',
+*             c_c(1)      TYPE c VALUE 'C',
+*             c_boart(4)  TYPE c VALUE 'Z007',
+*             c_u         TYPE c VALUE 'U',
+*             c_free(4)   TYPE c VALUE 'FREE',
+*             c_i         TYPE c VALUE 'I',
+*             c_d         TYPE c VALUE 'D',
+*             c_x         TYPE c VALUE 'X',
+*             c_0001(4)   TYPE c VALUE '0001',
+*             c_vbap(9)   TYPE c VALUE 'BAPE_VBAP',
+*             c_numeros   TYPE string VALUE '0123456789'.
+*
+*  DATA it_kotabnr_invalido  TYPE STANDARD TABLE OF ty_kotabnr_invalido.
+*  DATA wa_kotabnr_invalido  TYPE ty_kotabnr_invalido.
+*
+*
+*
+*    DATA: lv_knumv                 TYPE knumv,
+*        lv_knumh                 TYPE knumh,
+*        lv_knuma                 TYPE knuma,
+*        lv_botext                TYPE botext,
+*        lv_knr_ag                TYPE knuma_ag.
+*
+*  FIELD-SYMBOLS: <g_detalle_sin_cargo> TYPE ty_detalle_sin_cargo,
+*                 <g_free_goods>        TYPE ty_free_goods,
+*                 <g_popup>             TYPE ty_popup.
+*
+*  data lv_fecha  type sy-datum.
+*
+*  refresh it_tkomp[].
+*  clear   it_tkomp.
+*  READ TABLE XVBAP WITH KEY POSNR = i_promo_h-posnr.
+*    REFRESH it_kondn.
+*
+*    it_tkomp-kposn = XVBAP-posnr.
+*    it_tkomp-matnr = XVBAP-matnr.
+*    it_tkomp-werks = XVBAP-werks.
+*    it_tkomp-bwkey = XVBAP-werks.
+*    it_tkomp-prodh = XVBAP-prodh.
+*    it_tkomp-meins = XVBAP-meins.
+*    it_tkomp-vrkme = XVBAP-vrkme.
+*    it_tkomp-pstyv = XVBAP-pstyv.
+*    it_tkomp-lprio = XVBAP-lprio.
+*    it_tkomp-prodh1 = XVBAP-PRODH(3).
+*    it_tkomp-PRODH2 = XVBAP-PRODH+3(3).
+*    it_tkomp-PRODH3 = XVBAP-PRODH+6(4).
+*    it_tkomp-PRODH4 = XVBAP-PRODH+10(4).
+*    it_tkomp-PRODH5 = XVBAP-PRODH+14(4).
+*
+*    IT_TKOMP-USE_MULTIVAL_ATTR = ABAP_TRUE.
+*
+*    IF i_first_time  eq abap_true.
+*      it_tkomp-mglme = '99999999'.
+*      it_tkomp-mgame = '99999999'.
+*
+*    ELSE.
+*      it_tkomp-mglme = I_PROMO_H-knrmm - 1.
+*      it_tkomp-mgame = I_PROMO_H-knrmm - 1.
+*    ENDIF.
+*
+*    READ TABLE xkomv WITH KEY kschl = 'ZNA0'          "Added by ogm 20170228
+*                              kposn = xvbap-posnr.
+**   Begin commented by Oscar Glez 20170228
+**    READ TABLE xkomv WITH KEY kschl = 'ZT02'
+**                              kposn = xvbap-posnr.
+**    IF SY-SUBRC ne 0.
+**      READ TABLE xkomv WITH KEY kschl = 'ZT01'
+**                                kposn = xvbap-posnr.
+**    ENDIF.
+**   End commented by Oscar Glez 20170228
+*    READ TABLE xkomv WITH KEY kschl = 'ZPR0'  "changed by Oscar Glez 20170228
+*                              kposn = xvbap-posnr.
+*    IF SY-SUBRC ne 0.
+*      READ TABLE xkomv WITH KEY kschl = 'ZPRM'  "changed by Oscar Glez 20170316
+*                                kposn = xvbap-posnr.
+*    ENDIF.
+*
+*    IF SY-SUBRC ne 0.
+*      CLEAR tkomk-pltyp.
+*    ELSE.
+**      SELECT pltyp INTO tkomk-pltyp FROM a679 UP TO 1 ROWS        "Commented by ogm 20170228
+**                                   WHERE knumh = xkomv-knumh.
+*      SELECT pltyp INTO tkomk-pltyp FROM a906 UP TO 1 ROWS         "Added by ogm 20170228
+*                                   WHERE knumh = xkomv-knumh.
+*      ENDSELECT.
+*    ENDIF.
+*
+*    DO.
+*      REFRESH it_kondn.
+*      CALL FUNCTION 'NATRAB_SELECTION'
+*        EXPORTING
+*          APPLICATION                         = c_v
+*          DATE                                = sy-datum
+*          HEADER_COMMUNICATION                = tkomk
+*          ITEM_COMMUNICATION                   = it_tkomp
+*          SCHEME                              = c_zbn001
+*       TABLES
+*         KONDN_DATA                          = it_kondn.
+*      IF it_kondn[] IS INITIAL.
+*        EXIT.
+*      ENDIF.
+*
+*      READ TABLE it_kondn INTO wa_kondn INDEX 1.
+*
+*      REFRESH it_detalle_sin_cargo.
+*      SELECT knumh knr_ag knr_pi knrmm knrnm line_id knrzm knrmat prodh1 prodh2 prodh3 prodh4 prodh5
+*             knrme knrez
+*                                                INTO TABLE it_detalle_sin_cargo
+*                                                      FROM zsdtt_kondn FOR ALL ENTRIES IN it_kondn
+*                                                     WHERE knumh EQ it_kondn-knumh.
+*
+*      IF it_detalle_sin_cargo[] IS INITIAL.
+*        IF wa_kondn-kotabnr = '850'.
+*          EXIT.
+*        ENDIF.
+********************************
+**        READ TABLE it_kondn INTO wa_kondn INDEX 1.
+*        MOVE wa_kondn-kotabnr       TO wa_kotabnr_invalido.
+*        APPEND wa_kotabnr_invalido  TO it_kotabnr_invalido .
+*        EXPORT it_kotabnr_invalido  TO MEMORY ID 'KOTABNR_INVALIDO'.
+********************************
+*        CONTINUE.
+*      ENDIF.
+*
+*      CONCATENATE vbkd-prsdt+0(4) vbkd-prsdt+4(2) vbkd-prsdt+6(2) INTO lv_fecha.
+*      LOOP AT it_detalle_sin_cargo ASSIGNING <g_detalle_sin_cargo>.
+*        SELECT SINGLE knuma botext INTO (lv_knuma, lv_botext) FROM kona
+*                                                  WHERE knuma  = <g_detalle_sin_cargo>-knr_ag
+*                                                    AND uknuma = <g_detalle_sin_cargo>-knr_pi
+*                                                    AND vkorg = vbak-vkorg
+*                                                    AND boart = c_boart
+*                                                    AND abtyp = c_c
+*                                                    AND datab <= lv_fecha
+*                                                    AND datbi >= lv_fecha
+*                                                    AND kfrst = space.
+*        IF SY-SUBRC ne 0.
+**          <g_detalle_sin_cargo>-marca = 'X'. "20170321 Commented by Oscar Glez Analizar
+*        ELSE.
+*          <g_detalle_sin_cargo>-botext = lv_botext.
+*        ENDIF.
+*      ENDLOOP.
+*      DELETE it_detalle_sin_cargo WHERE marca = 'X'.
+*      IF it_detalle_sin_cargo[] IS INITIAL.
+*        IF wa_kondn-kotabnr = '850'.
+*          EXIT.
+*        ENDIF.
+********************************
+**        READ TABLE it_kondn INTO wa_kondn INDEX 1.
+*        MOVE wa_kondn-kotabnr TO wa_kotabnr_invalido.
+*        APPEND wa_kotabnr_invalido TO it_kotabnr_invalido .
+*        EXPORT it_kotabnr_invalido TO MEMORY ID 'KOTABNR_INVALIDO'.
+********************************
+*        CONTINUE.
+*      ENDIF.
+*
+*      IF NOT it_detalle_sin_cargo[] IS INITIAL.
+*        EXIT.
+*      ENDIF.
+*    ENDDO.
+*
+*    FREE MEMORY ID 'KOTABNR_INVALIDO'.
+****************
+******************************
+*    READ TABLE it_kondn INTO wa_kondn INDEX 1.
+*    SELECT SINGLE knumh INTO lv_knumh FROM zsdtt_kondne
+*                                     WHERE knumh  EQ wa_kondn-knumh
+*                                       AND knrmat EQ xvbap-matnr
+*                                       AND ( zexclusion EQ c_a OR zexclusion EQ c_c ).
+*    IF SY-SUBRC = 0.
+*      EXIT.
+*    ENDIF.
+******************************
+*    LOOP AT it_detalle_sin_cargo ASSIGNING <g_detalle_sin_cargo>.
+*      MOVE: vbak-vbeln                   TO wa_promo_h-vbeln,
+*            xvbap-posnr                  TO wa_promo_h-posnr,
+*            xvbap-kwmeng                 TO wa_promo_h-kwmeng,
+*            xvbap-vrkme                  TO wa_promo_h-vrkme,
+*            wa_kondn-knumh               TO wa_promo_h-knumh,
+*            <g_detalle_sin_cargo>-knr_pi TO wa_promo_h-knr_pi,
+*            <g_detalle_sin_cargo>-knr_ag TO wa_promo_h-knr_ag,
+*            wa_kondn-knrmm               TO wa_promo_h-knrmm,
+*            wa_kondn-knrnm               TO wa_promo_h-knrnm,
+*            wa_kondn-knrme               TO wa_promo_h-knrme,
+**            wa_kondn-knrzm               TO wa_promo_h-knrzm,
+*            <g_detalle_sin_cargo>-knrzm  TO wa_promo_h-knrzm,
+*            wa_kondn-knrez               TO wa_promo_h-knrez.
+*
+*             wa_promo_h-klmeng = XVBAP-KWMENG / XVBAP-UMVKN.
+**            xvbap-klmeng                 TO wa_promo_h-klmeng,
+*
+*      MOVE: xvbap-meins                  TO wa_promo_h-meins,
+*            xvbap-matnr                  TO wa_promo_h-matnr,
+*            <g_detalle_sin_cargo>-botext TO wa_promo_h-botext.
+*      APPEND wa_promo_h TO it_promo_h.
+*      CLEAR  wa_promo_h.
+*    ENDLOOP.
+*    APPEND LINES OF it_detalle_sin_cargo TO it_detalle_sin_cargop.
+*
+*  SORT: it_promo_h            BY knumh, "knr_ag,
+*        it_detalle_sin_cargop BY knumh. "knr_ag.
+*  DELETE ADJACENT DUPLICATES FROM it_promo_h.
+*
+*ENDFORM.
+*
+*FORM f_homologa_unit_m using p_line
+*                             p_um_base
+*                             p_matnr
+*                             p_cant_base
+*                             pt_promo_h TYPE tty_promo_h
+*                    changing pt_escalas TYPE tty_escalas.
+*  DATA ls_escalas LIKE LINE OF pt_escalas.
+*  DATA lt_escalas TYPE TABLE OF TY_ESCALAS.
+*  DATA ls_promo_h LIKE LINE OF pt_promo_h.
+*  DATA lv_tot_kwmeng_conv TYPE kwmeng.
+*
+*  SORT pt_escalas by knumh line_id ASCENDING.
+*  LOOP AT pt_escalas INTO ls_escalas.
+*     CLEAR lv_tot_kwmeng_conv.
+*     LOOP AT pt_promo_h INTO ls_promo_h WHERE KNUMH EQ ls_escalas-knumh.
+*       PERFORM f_convert_value USING   ls_promo_h-matnr
+*                                       ls_promo_h-vrkme
+*                                       ls_escalas-knrme
+*                                       ls_promo_h-klmeng
+*                                       ls_escalas-kwmeng_conv.
+*        lv_tot_kwmeng_conv = lv_tot_kwmeng_conv + ls_escalas-kwmeng_conv.
+*     ENDLOOP.
+*     ls_escalas-kwmeng_conv = lv_tot_kwmeng_conv.
+*     IF ls_escalas-knrmm <= lv_tot_kwmeng_conv.
+*       "clear ls_escalas-knrpos.
+*
+*       APPEND ls_escalas TO lt_escalas.
+*    ENDIF.
+*
+*
+*     modify pt_escalas FROM ls_escalas TRANSPORTING kwmeng_conv.
+*
+*  ENDLOOP.
+*  pt_escalas[] = lt_escalas[].
+*ENDFORM.
+ENDENHANCEMENT.
+*$*$-End:   (6)---------------------------------------------------------------------------------$*$*
