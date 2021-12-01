@@ -1,0 +1,118 @@
+  METHOD get_datetime.
+    DATA: vl_datetime TYPE string.
+    DATA: wa_cp            TYPE zcfdi_cp_cty,
+          vl_fecha         TYPE char10,
+          vl_hora          TYPE char10,
+          vl_timezone      TYPE  ttzdata-tzone,
+          vl_time_sys      TYPE  timezone,
+          vl_xdate         TYPE  e_edmdatefrom,
+          vl_xtime         TYPE  e_edmtimefrom,
+          vl_xtimezone     TYPE  timezone,
+          vl_xsecond       TYPE  kennzx,
+          vl_issuing_place TYPE zcfdi_cp_cty-cp_low,
+          vl_ydate_utc     TYPE  e_edmdatefrom,
+          vl_ytime_utc     TYPE  e_edmtimefrom.
+
+    CLEAR: wa_cp, vl_timezone, vl_time_sys, vl_fecha, vl_xdate,
+           vl_xtime, vl_xtimezone, vl_ydate_utc, vl_ytime_utc, vl_issuing_place.
+
+    vl_issuing_place = im_cp.
+    vl_datetime = im_datetime.
+
+    CONDENSE vl_issuing_place.
+    SELECT SINGLE *
+      FROM zcfdi_cp_cty
+      INTO wa_cp
+      WHERE cp_low <= vl_issuing_place
+      AND cp_high >= vl_issuing_place.
+
+    IF sy-subrc = 0.
+      CALL FUNCTION 'TZ_LOCATION_TIMEZONE'
+        EXPORTING
+          country           = wa_cp-zcountry
+          region            = wa_cp-zregion
+        IMPORTING
+          timezone          = vl_timezone
+*         TIMEZONE_MULTIPLE =
+        EXCEPTIONS
+          no_timezone_found = 1
+          OTHERS            = 2.
+
+      IF sy-subrc = 0.
+        CALL FUNCTION 'GET_SYSTEM_TIMEZONE'
+          IMPORTING
+            timezone            = vl_time_sys
+          EXCEPTIONS
+            customizing_missing = 1
+            OTHERS              = 2.
+        IF sy-subrc = 0.
+
+          SPLIT vl_datetime AT 'T' INTO vl_fecha vl_hora.
+
+          IF strlen( vl_fecha ) >= 10.
+            vl_xdate = vl_fecha+0(4) && vl_fecha+5(2) && vl_fecha+8(2).
+          ENDIF.
+          IF strlen( vl_hora ) >= 8.
+            vl_xtime = vl_hora+0(2) &&  vl_hora+3(2) &&  vl_hora+6(2).
+          ENDIF.
+
+          vl_xtimezone = vl_time_sys.
+
+          CALL FUNCTION 'ISU_DATE_TIME_CONVERT_UTC'
+            EXPORTING
+              x_date        = vl_xdate
+              x_time        = vl_xtime
+              x_timezone    = vl_xtimezone
+*             X_SECOND      =
+            IMPORTING
+              y_date_utc    = vl_ydate_utc
+              y_time_utc    = vl_ytime_utc
+            EXCEPTIONS
+              general_fault = 1
+              OTHERS        = 2.
+
+          IF sy-subrc = 0.
+
+            CLEAR: vl_xtime, vl_xdate.
+            vl_xtime = vl_ytime_utc.
+            vl_xdate = vl_ydate_utc.
+
+            CLEAR: vl_ytime_utc, vl_ydate_utc.
+
+            CALL FUNCTION 'ISU_DATE_TIME_CONVERT_TIMEZONE'
+              EXPORTING
+                x_date_utc    = vl_xdate
+                x_time_utc    = vl_xtime
+                x_timezone    = vl_timezone
+              IMPORTING
+                y_date_lcl    = vl_ydate_utc
+                y_time_lcl    = vl_ytime_utc
+              EXCEPTIONS
+                general_fault = 1
+                OTHERS        = 2.
+            IF sy-subrc = 0.
+              CLEAR: vl_fecha.
+
+              CALL FUNCTION 'CONVERT_DATE_TO_EXTERNAL'
+                EXPORTING
+                  date_internal            = vl_ydate_utc
+                IMPORTING
+                  date_external            = vl_fecha
+                EXCEPTIONS
+                  date_internal_is_invalid = 1
+                  OTHERS                   = 2.
+
+              CLEAR vl_datetime.
+
+              CONCATENATE vl_ydate_utc+0(4) vl_ydate_utc+4(2) vl_ydate_utc+6(2) INTO vl_fecha SEPARATED BY '-'.
+
+              CONCATENATE vl_ytime_utc+0(2) vl_ytime_utc+2(2) vl_ytime_utc+4(2) INTO vl_datetime SEPARATED BY ':'.
+              CONCATENATE vl_fecha vl_datetime INTO vl_datetime SEPARATED BY 'T'.
+            ENDIF.
+          ENDIF.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+
+    ex_datetime = vl_datetime.
+  ENDMETHOD.
